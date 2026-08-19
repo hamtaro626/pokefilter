@@ -11,25 +11,33 @@ const TYPE_COLORS = {
 const CATEGORY_COLORS = { Physical: "#C22E28", Special: "#6390F0", Status: "#A8A77A" };
 
 const SPRITE_BASE = "https://play.pokemonshowdown.com/sprites/gen5";
-const USAGE_API = "https://championsbattledata.com/api/battle";
 
 // ---------- state ----------
 const state = {
   format: "regmb",    // "regmb" (current) | "regma"
-  types: [],          // ["Dragon", "Ground"] — max 2
+  nameQuery: "",      // substring match on Pokémon name
+  types: [],          // must-have types — max 2
+  excludeTypes: [],   // must-NOT-have types
+  mega: "all",        // "all" | "hide" | "only"
   moves: [],          // move ids: ["earthquake", "rockslide"]
   ability: null,      // display name: "Intimidate"
   statMins: {},       // { spe: 100, bst: 500, ... }
   moveCategory: null, // null | "Physical" | "Special" | "Status" (picker filter)
   lv50: false,        // false = base stats, true = level-50 with 31 IVs
   sort: "bst",
+  sortDir: "desc",    // "desc" | "asc"
 };
 
 let DATA = null;        // { pokemon, moveInfo, abilityInfo }
 let MOVE_LIST = [];     // [{ id, ...moveInfo }] sorted by name
 let ABILITY_LIST = [];  // ["Adaptability", ...]
-let expandedId = null;  // card with the usage panel open
-const usageCache = {};  // "Doubles/garchomp" -> rows
+let USAGE = null;       // data/usage/usage.json, lazy-loaded
+let usagePromise = null;
+let expandedId = null;  // card with the detail panel open
+let detailTab = "usage";   // "usage" | "moves"
+let usageFormat = "Doubles";
+
+const isMega = (p) => /-Mega(-[XY])?$/.test(p.name);
 
 // ---------- boot ----------
 fetch("data/pokemon.json")
@@ -65,7 +73,11 @@ function displayStats(p) {
 // ---------- filtering ----------
 function matches(p) {
   if (!p.formats[state.format]) return false;
+  if (state.nameQuery && !p.name.toLowerCase().includes(state.nameQuery)) return false;
+  if (state.mega === "hide" && isMega(p)) return false;
+  if (state.mega === "only" && !isMega(p)) return false;
   for (const t of state.types) if (!p.types.includes(t)) return false;
+  for (const t of state.excludeTypes) if (p.types.includes(t)) return false;
   for (const m of state.moves) if (!p.moves.includes(m)) return false;
   if (state.ability && !p.abilities.includes(state.ability)) return false;
   const stats = displayStats(p);
@@ -78,10 +90,11 @@ function matches(p) {
 function render() {
   const pool = DATA.pokemon.filter((p) => p.formats[state.format]);
   const results = pool.filter(matches);
+  const dir = state.sortDir === "desc" ? 1 : -1;
   results.sort((a, b) => {
-    if (state.sort === "name") return a.name.localeCompare(b.name);
+    if (state.sort === "name") return dir * a.name.localeCompare(b.name); // ↓ = A→Z
     const sa = displayStats(a), sb = displayStats(b);
-    return sb[state.sort] - sa[state.sort];
+    return dir * (sb[state.sort] - sa[state.sort]);
   });
 
   document.getElementById("result-count").textContent =
@@ -97,8 +110,8 @@ function render() {
   for (const p of results) frag.appendChild(card(p));
   container.appendChild(frag);
   if (expandedId) {
-    const open = container.querySelector(`[data-id="${expandedId}"] .usage-panel`);
-    if (open) loadUsage(expandedId);
+    const p = DATA.pokemon.find((x) => x.id === expandedId);
+    if (p && container.querySelector(`[data-id="${expandedId}"] .detail-panel`)) fillDetail(p);
   }
 }
 
@@ -140,7 +153,7 @@ function card(p) {
     .join(" · ");
 
   el.innerHTML = `
-    <div class="card-top" role="button" tabindex="0" title="Click for usage stats">
+    <div class="card-top" role="button" tabindex="0" title="Click for usage & full moveset">
       <img src="${SPRITE_BASE}/${p.sprite}.png" alt="" loading="lazy"
            data-fb="${fallbackSprite(p.name)}"
            onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){this.src=this.dataset.fb}else{this.style.visibility='hidden'}">
@@ -152,9 +165,12 @@ function card(p) {
     </div>
     <div class="card-stats">${statRows}</div>
     <div class="card-bst">${state.lv50 ? "Lv. 50 total" : "BST"} ${stats.bst}</div>
-    ${expandedId === p.id ? usagePanelHtml() : ""}`;
+    ${expandedId === p.id ? `<div class="detail-panel"><div class="usage-body">Loading…</div></div>` : ""}`;
 
-  el.querySelector(".card-top").addEventListener("click", () => toggleUsage(p));
+  el.querySelector(".card-top").addEventListener("click", () => {
+    expandedId = expandedId === p.id ? null : p.id;
+    render();
+  });
   return el;
 }
 
@@ -166,64 +182,102 @@ function esc(s) {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
-// ---------- usage stats (live from championsbattledata.com) ----------
-let usageFormat = "Doubles";
+// ---------- detail panel: usage (weekly snapshots) + full moveset ----------
+function loadUsageFile() {
+  usagePromise ??= fetch("data/usage/usage.json")
+    .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then((j) => (USAGE = j))
+    .catch(() => null);
+  return usagePromise;
+}
 
-function usagePanelHtml() {
-  return `<div class="usage-panel">
+function trendCell(series) {
+  // series is aligned to USAGE.dates; latest value + change vs previous point
+  let latest = null, prev = null;
+  for (let i = series.length - 1; i >= 0; i--) {
+    if (series[i] == null) continue;
+    if (latest === null) latest = series[i];
+    else { prev = series[i]; break; }
+  }
+  if (latest === null) return "";
+  let delta = "";
+  if (prev !== null) {
+    const d = +(latest - prev).toFixed(1);
+    if (d > 0) delta = ` <span class="trend up">▲${d}</span>`;
+    else if (d < 0) delta = ` <span class="trend down">▼${Math.abs(d)}</span>`;
+    else delta = ` <span class="trend flat">•</span>`;
+  }
+  const history = USAGE.dates.map((d, i) => `${d.slice(5)}: ${series[i] ?? "—"}%`).join("  ");
+  return `<span title="${esc(history)}">${latest}%${delta}</span>`;
+}
+
+async function fillDetail(p) {
+  const panel = document.querySelector(`[data-id="${p.id}"] .detail-panel`);
+  if (!panel) return;
+
+  panel.innerHTML = `
     <div class="usage-tabs">
-      ${["Doubles", "Singles"].map((f) =>
-        `<button class="usage-tab ${f === usageFormat ? "active" : ""}" data-uf="${f}">${f}</button>`).join("")}
-      <span class="usage-note">current season ranked</span>
+      <button class="usage-tab ${detailTab === "usage" ? "active" : ""}" data-dt="usage">Usage</button>
+      <button class="usage-tab ${detailTab === "moves" ? "active" : ""}" data-dt="moves">All moves</button>
+      ${detailTab === "usage" ? ["Doubles", "Singles"].map((f) =>
+        `<button class="usage-tab sub ${f === usageFormat ? "active" : ""}" data-uf="${f}">${f}</button>`).join("") : ""}
+      <span class="usage-note">${detailTab === "usage" ? "updated weekly" : `${p.moves.length} moves`}</span>
     </div>
-    <div class="usage-body">Loading…</div>
-  </div>`;
-}
+    <div class="usage-body">Loading…</div>`;
 
-function toggleUsage(p) {
-  expandedId = expandedId === p.id ? null : p.id;
-  render();
-}
-
-async function loadUsage(id) {
-  const p = DATA.pokemon.find((x) => x.id === id);
-  const panel = document.querySelector(`[data-id="${id}"] .usage-panel`);
-  if (!p || !panel) return;
-
-  panel.querySelectorAll(".usage-tab").forEach((btn) =>
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      usageFormat = btn.dataset.uf;
-      render();
-    }));
+  panel.querySelectorAll("[data-dt]").forEach((btn) =>
+    btn.addEventListener("click", (e) => { e.stopPropagation(); detailTab = btn.dataset.dt; fillDetail(p); }));
+  panel.querySelectorAll("[data-uf]").forEach((btn) =>
+    btn.addEventListener("click", (e) => { e.stopPropagation(); usageFormat = btn.dataset.uf; fillDetail(p); }));
 
   const body = panel.querySelector(".usage-body");
-  const key = `${usageFormat}/${p.baseId}`;
-  try {
-    if (!usageCache[key]) {
-      const res = await fetch(`${USAGE_API}/${usageFormat}/${p.baseId}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      usageCache[key] = (await res.json()).rows;
-    }
-    const rows = usageCache[key];
-    const section = (cat, title, n) => {
-      const items = rows.filter((r) => r.category === cat).slice(0, n);
-      if (!items.length) return "";
-      return `<div class="usage-col"><h3>${title}</h3>${items.map((r) =>
-        `<div class="usage-row"><span>${r.name}</span><span>${r.percentage}</span></div>`).join("")}</div>`;
-    };
-    body.innerHTML =
-      section("move", "Moves", 8) + section("ability", "Abilities", 3) + section("held_item", "Items", 5) ||
-      "No ranked data for this Pokémon.";
-    if (p.baseId !== p.id) {
-      body.innerHTML += `<p class="usage-note">Data is for ${p.baseId} including all its forms.</p>`;
-    }
-  } catch (err) {
-    body.textContent = "No usage data available for this Pokémon.";
+
+  if (detailTab === "moves") {
+    const abilities = p.abilities.map((a) =>
+      `<div class="usage-row"><span>${a}</span><span class="opt-desc">${esc(DATA.abilityInfo[a] || "")}</span></div>`).join("");
+    const moves = p.moves.map((id) => {
+      const m = DATA.moveInfo[id];
+      const bp = m.category === "Status" ? "—" : m.basePower;
+      const acc = m.accuracy === true ? "—" : m.accuracy + "%";
+      return `<div class="usage-row" title="${esc(m.desc)}">
+        <span>${m.name}</span>
+        <span class="opt-meta">
+          <span class="type-badge" style="background:${TYPE_COLORS[m.type] || "#666"}">${m.type}</span>
+          <span class="cat-badge" style="background:${CATEGORY_COLORS[m.category] || "#666"}">${m.category.slice(0, 4)}</span>
+          <span class="opt-nums">BP ${bp} · ${acc}</span>
+        </span>
+      </div>`;
+    }).join("");
+    body.innerHTML = `
+      <div class="usage-col"><h3>Abilities</h3>${abilities}</div>
+      <div class="usage-col moveset-list"><h3>Learnable moves</h3>${moves}</div>`;
+    return;
   }
+
+  // usage tab
+  await loadUsageFile();
+  const rec = USAGE?.formats?.[usageFormat]?.[p.baseId];
+  if (!rec) {
+    body.textContent = "No ranked usage data for this Pokémon.";
+    return;
+  }
+  const section = (bucket, title, n) => {
+    const entries = Object.entries(rec[bucket] ?? {})
+      .map(([name, series]) => ({ name, series, latest: [...series].reverse().find((v) => v != null) ?? 0 }))
+      .sort((a, b) => b.latest - a.latest)
+      .slice(0, n);
+    if (!entries.length) return "";
+    return `<div class="usage-col"><h3>${title}</h3>${entries.map((e) =>
+      `<div class="usage-row"><span>${e.name}</span>${trendCell(e.series)}</div>`).join("")}</div>`;
+  };
+  body.innerHTML =
+    (section("moves", "Moves", 8) + section("abilities", "Abilities", 3) + section("items", "Items", 5)) ||
+    "No ranked usage data for this Pokémon.";
+  body.innerHTML += `<p class="usage-note">Snapshots: ${USAGE.dates.join(" · ")}${
+    p.baseId !== p.id ? ` — data covers ${p.baseId} incl. all forms` : ""}</p>`;
 }
 
-// ---------- type chips ----------
+// ---------- type chips (click cycles: off -> include -> exclude -> off) ----------
 function buildTypeChips() {
   const wrap = document.getElementById("type-chips");
   for (const type of Object.keys(TYPE_COLORS)) {
@@ -232,14 +286,19 @@ function buildTypeChips() {
     btn.textContent = type;
     btn.style.background = TYPE_COLORS[type];
     btn.addEventListener("click", () => {
-      const i = state.types.indexOf(type);
-      if (i >= 0) state.types.splice(i, 1);
-      else {
-        if (state.types.length === 2) state.types.shift(); // replace oldest
+      if (state.types.includes(type)) {
+        state.types = state.types.filter((t) => t !== type);
+        state.excludeTypes.push(type);
+      } else if (state.excludeTypes.includes(type)) {
+        state.excludeTypes = state.excludeTypes.filter((t) => t !== type);
+      } else {
+        if (state.types.length === 2) state.types.shift(); // replace oldest include
         state.types.push(type);
       }
-      wrap.querySelectorAll(".type-chip").forEach((b) =>
-        b.classList.toggle("active", state.types.includes(b.textContent)));
+      wrap.querySelectorAll(".type-chip").forEach((b) => {
+        b.classList.toggle("active", state.types.includes(b.textContent));
+        b.classList.toggle("exclude", state.excludeTypes.includes(b.textContent));
+      });
       render();
     });
     wrap.appendChild(btn);
@@ -377,6 +436,22 @@ function renderSelectedChips() {
   }
 }
 
+// ---------- name search ----------
+document.getElementById("name-input").addEventListener("input", (e) => {
+  state.nameQuery = e.target.value.trim().toLowerCase();
+  render();
+});
+
+// ---------- mega filter ----------
+document.querySelectorAll(".mega-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    state.mega = btn.dataset.mega;
+    document.querySelectorAll(".mega-btn").forEach((b) =>
+      b.classList.toggle("active", b.dataset.mega === state.mega));
+    render();
+  });
+});
+
 // ---------- move category filter ----------
 document.querySelectorAll(".cat-chip").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -425,13 +500,26 @@ document.getElementById("sort-select").addEventListener("change", (e) => {
   render();
 });
 
+document.getElementById("sort-dir").addEventListener("click", (e) => {
+  state.sortDir = state.sortDir === "desc" ? "asc" : "desc";
+  e.target.textContent = state.sortDir === "desc" ? "↓" : "↑";
+  e.target.title = state.sortDir === "desc" ? "Highest first" : "Lowest first";
+  render();
+});
+
 document.getElementById("clear-all").addEventListener("click", () => {
+  state.nameQuery = "";
   state.types = [];
+  state.excludeTypes = [];
+  state.mega = "all";
   state.moves = [];
   state.ability = null;
   state.statMins = {};
   state.moveCategory = null;
-  document.querySelectorAll(".type-chip, .cat-chip").forEach((b) => b.classList.remove("active"));
+  document.getElementById("name-input").value = "";
+  document.querySelectorAll(".type-chip, .cat-chip").forEach((b) => b.classList.remove("active", "exclude"));
+  document.querySelectorAll(".mega-btn").forEach((b) =>
+    b.classList.toggle("active", b.dataset.mega === "all"));
   document.querySelectorAll("#stat-inputs input").forEach((i) => (i.value = ""));
   renderSelectedChips();
   render();

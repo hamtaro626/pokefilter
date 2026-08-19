@@ -1,4 +1,24 @@
-# PokéFilter — SPEC (v0.2)
+# PokéFilter — SPEC (v0.3)
+
+## v0.3 additions (2026-08-19)
+- **Detail panel tabs**: click a card for Usage (as before) or **All moves** —
+  the full Champions learnset with type/category/BP/accuracy, plus abilities
+  with descriptions.
+- **Weekly usage snapshots**: usage data now lives in `data/usage/usage.json`,
+  refreshed by a GitHub Action every Monday 06:00 UTC (`.github/workflows/
+  update-usage.yml`) — the app no longer polls championsbattledata.com live.
+  Backfilled ~5 weekly points from the API's daily history; each usage row
+  shows the latest % plus a ▲/▼ week-over-week trend (full history on hover).
+  `node scripts/fetch-usage.mjs` runs a snapshot manually; `--backfill` rebuilds.
+- **Type exclusion (NOT)**: type chips cycle include → exclude → off
+  (e.g. Trick Room learners that are NOT Psychic).
+- **Sort direction** toggle (↓/↑).
+- **Mega filter**: All / No Megas / Megas only.
+- **Name search**: substring filter on Pokémon name.
+
+---
+
+# v0.2 spec
 
 ## v0.2 additions (2026-08-19)
 - **Regulation selector**: Reg M-B (current, 310 Pokémon) / Reg M-A (272).

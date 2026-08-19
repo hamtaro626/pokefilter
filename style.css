@@ -76,9 +76,29 @@ main {
 }
 .type-chip:hover { opacity: 0.8; }
 .type-chip.active { opacity: 1; transform: scale(1.05); border-color: #fff; }
+.type-chip.exclude {
+  opacity: 1;
+  border-color: var(--accent);
+  text-decoration: line-through;
+  box-shadow: 0 0 0 1px var(--accent);
+  filter: saturate(0.4);
+}
+
+#name-input {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
+}
+#name-input:focus { outline: 2px solid var(--accent-2); outline-offset: -1px; }
+
+.hint-line { font-size: 0.68rem; color: var(--muted); margin-top: 0.4rem; opacity: 0.8; }
 
 .segmented { display: flex; gap: 0.35rem; }
-.format-btn {
+.format-btn, .mega-btn {
   flex: 1;
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -90,7 +110,7 @@ main {
   cursor: pointer;
 }
 .format-btn .hint { font-weight: normal; font-size: 0.7rem; opacity: 0.7; }
-.format-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.format-btn.active, .mega-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .format-btn.active .hint { color: #fff; }
 
 .cat-chips { display: flex; gap: 0.35rem; margin-bottom: 0.5rem; }
@@ -236,6 +256,17 @@ main {
   padding: 0.25rem 0.4rem;
   margin-left: 0.35rem;
 }
+#sort-dir {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  margin-left: 0.3rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+#sort-dir:hover { border-color: var(--muted); }
 
 .results {
   display: grid;
@@ -288,11 +319,18 @@ main {
 .card-top { cursor: pointer; border-radius: 6px; }
 .card-top:hover { background: var(--panel-2); }
 
-.usage-panel {
+.detail-panel {
   margin-top: 0.6rem;
   border-top: 1px solid var(--border);
   padding-top: 0.5rem;
 }
+.usage-tab.sub { margin-left: 0.15rem; border-radius: 999px; }
+.usage-tabs .usage-tab:nth-child(2) { margin-right: 0.5rem; }
+.trend { font-size: 0.65rem; margin-left: 0.15rem; }
+.trend.up { color: #7AC74C; }
+.trend.down { color: #e3350d; }
+.trend.flat { color: var(--muted); }
+.moveset-list { max-height: 260px; overflow-y: auto; padding-right: 0.25rem; }
 .usage-tabs { display: flex; gap: 0.3rem; align-items: center; margin-bottom: 0.4rem; }
 .usage-tab {
   background: var(--panel-2);

@@ -18,6 +18,11 @@
     <section class="filters" aria-label="Filters">
 
       <div class="filter-group">
+        <h2>Pokémon name</h2>
+        <input id="name-input" type="text" placeholder="e.g. Garchomp…" autocomplete="off">
+      </div>
+
+      <div class="filter-group">
         <h2>Regulation</h2>
         <div class="segmented">
           <button class="format-btn active" data-format="regmb" type="button">Reg M-B <span class="hint">current</span></button>
@@ -26,8 +31,18 @@
       </div>
 
       <div class="filter-group">
-        <h2>Types <span class="hint">pick up to 2 — must have all</span></h2>
+        <h2>Types <span class="hint">click again to exclude (NOT)</span></h2>
         <div id="type-chips" class="type-chips"></div>
+        <p class="hint-line">1st click = must have (max 2) · 2nd = must NOT have · 3rd = off</p>
+      </div>
+
+      <div class="filter-group">
+        <h2>Mega Evolutions</h2>
+        <div class="segmented">
+          <button class="mega-btn active" data-mega="all" type="button">All</button>
+          <button class="mega-btn" data-mega="hide" type="button">No Megas</button>
+          <button class="mega-btn" data-mega="only" type="button">Megas only</button>
+        </div>
       </div>
 
       <div class="filter-group">
@@ -89,6 +104,7 @@
             <option value="spd">Sp. Def</option>
             <option value="name">Name</option>
           </select>
+          <button id="sort-dir" type="button" title="Highest first">↓</button>
         </label>
       </div>
       <div id="results" class="results"></div>

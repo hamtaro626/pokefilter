@@ -26,6 +26,17 @@ node scripts/build-data.mjs
 
 This rewrites `data/pokemon.json`. Nothing else needs to change.
 
+## Usage stats
+
+Ranked usage (from championsbattledata.com) is snapshotted **weekly** by a
+GitHub Action (Mondays 06:00 UTC) into `data/usage/usage.json`, building a
+time series the app uses for week-over-week trend arrows. Manual runs:
+
+```bash
+node scripts/fetch-usage.mjs             # append a snapshot now
+node scripts/fetch-usage.mjs --backfill  # rebuild from the API's daily history
+```
+
 ## Files
 
 | File | What it is |
