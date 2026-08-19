@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PokéFilter — Pokémon Champions team-building search</title>
+  <meta name="description" content="Find every Pokémon Champions Pokémon that matches your moves, ability, types, and stat requirements.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1>Poké<span class="accent">Filter</span></h1>
+    <p class="tagline">Find every <strong>Pokémon Champions</strong> Pokémon that fits your team's needs</p>
+  </header>
+
+  <main>
+    <section class="filters" aria-label="Filters">
+
+      <div class="filter-group">
+        <h2>Types <span class="hint">pick up to 2 — must have all</span></h2>
+        <div id="type-chips" class="type-chips"></div>
+      </div>
+
+      <div class="filter-group">
+        <h2>Moves <span class="hint">must learn all selected</span></h2>
+        <div class="picker">
+          <input id="move-input" type="text" placeholder="Type a move, e.g. Icy Wind…" autocomplete="off">
+          <ul id="move-suggestions" class="suggestions" hidden></ul>
+        </div>
+        <div id="move-selected" class="selected-chips"></div>
+      </div>
+
+      <div class="filter-group">
+        <h2>Ability</h2>
+        <div class="picker">
+          <input id="ability-input" type="text" placeholder="Type an ability, e.g. Intimidate…" autocomplete="off">
+          <ul id="ability-suggestions" class="suggestions" hidden></ul>
+        </div>
+        <div id="ability-selected" class="selected-chips"></div>
+      </div>
+
+      <div class="filter-group">
+        <h2>Minimum base stats</h2>
+        <div class="stat-inputs" id="stat-inputs">
+          <label>HP <input type="number" data-stat="hp" min="0" max="255" placeholder="0"></label>
+          <label>Atk <input type="number" data-stat="atk" min="0" max="255" placeholder="0"></label>
+          <label>Def <input type="number" data-stat="def" min="0" max="255" placeholder="0"></label>
+          <label>SpA <input type="number" data-stat="spa" min="0" max="255" placeholder="0"></label>
+          <label>SpD <input type="number" data-stat="spd" min="0" max="255" placeholder="0"></label>
+          <label>Spe <input type="number" data-stat="spe" min="0" max="255" placeholder="0"></label>
+          <label>BST <input type="number" data-stat="bst" min="0" max="1125" placeholder="0"></label>
+        </div>
+      </div>
+
+      <div class="filter-actions">
+        <button id="clear-all" type="button">Clear all filters</button>
+      </div>
+    </section>
+
+    <section class="results-section" aria-label="Results">
+      <div class="results-bar">
+        <span id="result-count">Loading…</span>
+        <label class="sort-label">Sort by
+          <select id="sort-select">
+            <option value="bst">BST</option>
+            <option value="spe">Speed</option>
+            <option value="hp">HP</option>
+            <option value="atk">Attack</option>
+            <option value="def">Defense</option>
+            <option value="spa">Sp. Atk</option>
+            <option value="spd">Sp. Def</option>
+            <option value="name">Name</option>
+          </select>
+        </label>
+      </div>
+      <div id="results" class="results"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Data: <a href="https://github.com/smogon/pokemon-showdown" target="_blank" rel="noopener">Pokémon Showdown</a> Champions mod ·
+    Base stats shown (not level-50 values) · Not affiliated with Nintendo/The Pokémon Company</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
