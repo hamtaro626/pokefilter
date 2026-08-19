@@ -8,28 +8,36 @@ const TYPE_COLORS = {
   Steel: "#B7B7CE", Fairy: "#D685AD",
 };
 
+const CATEGORY_COLORS = { Physical: "#C22E28", Special: "#6390F0", Status: "#A8A77A" };
+
 const SPRITE_BASE = "https://play.pokemonshowdown.com/sprites/gen5";
+const USAGE_API = "https://championsbattledata.com/api/battle";
 
 // ---------- state ----------
 const state = {
+  format: "regmb",    // "regmb" (current) | "regma"
   types: [],          // ["Dragon", "Ground"] — max 2
   moves: [],          // move ids: ["earthquake", "rockslide"]
   ability: null,      // display name: "Intimidate"
   statMins: {},       // { spe: 100, bst: 500, ... }
+  moveCategory: null, // null | "Physical" | "Special" | "Status" (picker filter)
+  lv50: false,        // false = base stats, true = level-50 with 31 IVs
   sort: "bst",
 };
 
-let DATA = null;        // { pokemon, moveNames }
-let MOVE_LIST = [];     // [{ id, name }] sorted by name
+let DATA = null;        // { pokemon, moveInfo, abilityInfo }
+let MOVE_LIST = [];     // [{ id, ...moveInfo }] sorted by name
 let ABILITY_LIST = [];  // ["Adaptability", ...]
+let expandedId = null;  // card with the usage panel open
+const usageCache = {};  // "Doubles/garchomp" -> rows
 
 // ---------- boot ----------
 fetch("data/pokemon.json")
   .then((r) => r.json())
   .then((data) => {
     DATA = data;
-    MOVE_LIST = Object.entries(data.moveNames)
-      .map(([id, name]) => ({ id, name }))
+    MOVE_LIST = Object.entries(data.moveInfo)
+      .map(([id, info]) => ({ id, ...info }))
       .sort((a, b) => a.name.localeCompare(b.name));
     ABILITY_LIST = [...new Set(data.pokemon.flatMap((p) => p.abilities))].sort();
     buildTypeChips();
@@ -41,38 +49,57 @@ fetch("data/pokemon.json")
     console.error(err);
   });
 
+// ---------- stats: base vs level-50 (31 IVs, 0 EVs, neutral nature) ----------
+function displayStats(p) {
+  if (!state.lv50) return { ...p.stats, bst: p.bst };
+  const s = {};
+  for (const [k, b] of Object.entries(p.stats)) {
+    s[k] = k === "hp"
+      ? (b === 1 ? 1 : Math.floor((2 * b + 31) * 50 / 100) + 60) // Shedinja stays at 1
+      : Math.floor((2 * b + 31) * 50 / 100) + 5;
+  }
+  s.bst = s.hp + s.atk + s.def + s.spa + s.spd + s.spe;
+  return s;
+}
+
 // ---------- filtering ----------
 function matches(p) {
+  if (!p.formats[state.format]) return false;
   for (const t of state.types) if (!p.types.includes(t)) return false;
   for (const m of state.moves) if (!p.moves.includes(m)) return false;
   if (state.ability && !p.abilities.includes(state.ability)) return false;
+  const stats = displayStats(p);
   for (const [stat, min] of Object.entries(state.statMins)) {
-    const val = stat === "bst" ? p.bst : p.stats[stat];
-    if (val < min) return false;
+    if (stats[stat] < min) return false;
   }
   return true;
 }
 
 function render() {
-  const results = DATA.pokemon.filter(matches);
+  const pool = DATA.pokemon.filter((p) => p.formats[state.format]);
+  const results = pool.filter(matches);
   results.sort((a, b) => {
     if (state.sort === "name") return a.name.localeCompare(b.name);
-    if (state.sort === "bst") return b.bst - a.bst;
-    return b.stats[state.sort] - a.stats[state.sort];
+    const sa = displayStats(a), sb = displayStats(b);
+    return sb[state.sort] - sa[state.sort];
   });
 
   document.getElementById("result-count").textContent =
-    `${results.length} of ${DATA.pokemon.length} Pokémon match`;
+    `${results.length} of ${pool.length} Pokémon match`;
 
   const container = document.getElementById("results");
   container.innerHTML = "";
   if (results.length === 0) {
-    container.innerHTML = `<p class="empty">No Pokémon in Champions matches all of those filters. Try removing one.</p>`;
+    container.innerHTML = `<p class="empty">No Pokémon in this regulation matches all of those filters. Try removing one.</p>`;
     return;
   }
   const frag = document.createDocumentFragment();
   for (const p of results) frag.appendChild(card(p));
   container.appendChild(frag);
+  if (expandedId) {
+    const open = container.querySelector(`[data-id="${expandedId}"] .usage-panel`);
+    if (open) loadUsage(expandedId);
+  }
 }
 
 // ---------- result cards ----------
@@ -93,35 +120,107 @@ function fallbackSprite(name) {
 function card(p) {
   const el = document.createElement("div");
   el.className = "card";
+  el.dataset.id = p.id;
+  const stats = displayStats(p);
+  const scale = state.lv50 ? 260 : 200;
 
   const statRows = STAT_ROWS.map(([key, label]) => {
-    const v = p.stats[key];
-    const pct = Math.min(100, (v / 200) * 100);
-    const color = v >= 120 ? "#7AC74C" : v >= 90 ? "#F7D02C" : v >= 60 ? "#EE8130" : "#C22E28";
+    const v = stats[key];
+    const base = p.stats[key];
+    const pct = Math.min(100, (v / scale) * 100);
+    const color = base >= 120 ? "#7AC74C" : base >= 90 ? "#F7D02C" : base >= 60 ? "#EE8130" : "#C22E28";
     return `<div class="stat-row">
       <span class="label">${label}</span><span class="value">${v}</span>
       <div class="stat-bar"><span style="width:${pct}%;background:${color}"></span></div>
     </div>`;
   }).join("");
 
+  const abilities = p.abilities
+    .map((a) => `<span title="${esc(DATA.abilityInfo[a] || "")}">${a}</span>`)
+    .join(" · ");
+
   el.innerHTML = `
-    <div class="card-top">
+    <div class="card-top" role="button" tabindex="0" title="Click for usage stats">
       <img src="${SPRITE_BASE}/${p.sprite}.png" alt="" loading="lazy"
            data-fb="${fallbackSprite(p.name)}"
            onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){this.src=this.dataset.fb}else{this.style.visibility='hidden'}">
       <div>
-        <div class="card-name">${p.name}<span class="card-tier">${p.tier}</span></div>
+        <div class="card-name">${p.name}<span class="card-tier">${p.formats[state.format]}</span></div>
         <div class="card-types">${p.types.map(typeBadge).join("")}</div>
-        <div class="card-abilities">${p.abilities.join(" · ")}</div>
+        <div class="card-abilities">${abilities}</div>
       </div>
     </div>
     <div class="card-stats">${statRows}</div>
-    <div class="card-bst">BST ${p.bst}</div>`;
+    <div class="card-bst">${state.lv50 ? "Lv. 50 total" : "BST"} ${stats.bst}</div>
+    ${expandedId === p.id ? usagePanelHtml() : ""}`;
+
+  el.querySelector(".card-top").addEventListener("click", () => toggleUsage(p));
   return el;
 }
 
 function typeBadge(t) {
   return `<span class="type-badge" style="background:${TYPE_COLORS[t]}">${t}</span>`;
+}
+
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
+// ---------- usage stats (live from championsbattledata.com) ----------
+let usageFormat = "Doubles";
+
+function usagePanelHtml() {
+  return `<div class="usage-panel">
+    <div class="usage-tabs">
+      ${["Doubles", "Singles"].map((f) =>
+        `<button class="usage-tab ${f === usageFormat ? "active" : ""}" data-uf="${f}">${f}</button>`).join("")}
+      <span class="usage-note">current season ranked</span>
+    </div>
+    <div class="usage-body">Loading…</div>
+  </div>`;
+}
+
+function toggleUsage(p) {
+  expandedId = expandedId === p.id ? null : p.id;
+  render();
+}
+
+async function loadUsage(id) {
+  const p = DATA.pokemon.find((x) => x.id === id);
+  const panel = document.querySelector(`[data-id="${id}"] .usage-panel`);
+  if (!p || !panel) return;
+
+  panel.querySelectorAll(".usage-tab").forEach((btn) =>
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      usageFormat = btn.dataset.uf;
+      render();
+    }));
+
+  const body = panel.querySelector(".usage-body");
+  const key = `${usageFormat}/${p.baseId}`;
+  try {
+    if (!usageCache[key]) {
+      const res = await fetch(`${USAGE_API}/${usageFormat}/${p.baseId}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      usageCache[key] = (await res.json()).rows;
+    }
+    const rows = usageCache[key];
+    const section = (cat, title, n) => {
+      const items = rows.filter((r) => r.category === cat).slice(0, n);
+      if (!items.length) return "";
+      return `<div class="usage-col"><h3>${title}</h3>${items.map((r) =>
+        `<div class="usage-row"><span>${r.name}</span><span>${r.percentage}</span></div>`).join("")}</div>`;
+    };
+    body.innerHTML =
+      section("move", "Moves", 8) + section("ability", "Abilities", 3) + section("held_item", "Items", 5) ||
+      "No ranked data for this Pokémon.";
+    if (p.baseId !== p.id) {
+      body.innerHTML += `<p class="usage-note">Data is for ${p.baseId} including all its forms.</p>`;
+    }
+  } catch (err) {
+    body.textContent = "No usage data available for this Pokémon.";
+  }
 }
 
 // ---------- type chips ----------
@@ -148,7 +247,7 @@ function buildTypeChips() {
 }
 
 // ---------- autocomplete pickers ----------
-function setupPicker({ inputId, listId, getOptions, onPick }) {
+function setupPicker({ inputId, listId, getOptions, renderOption, onPick }) {
   const input = document.getElementById(inputId);
   const list = document.getElementById(listId);
   let highlighted = -1;
@@ -157,13 +256,13 @@ function setupPicker({ inputId, listId, getOptions, onPick }) {
 
   function update() {
     const q = input.value.trim().toLowerCase();
-    if (!q) return close();
-    const opts = getOptions(q).slice(0, 12);
+    const opts = getOptions(q); // empty query = full list, scrollable
     if (opts.length === 0) return close();
     list.innerHTML = "";
     opts.forEach((opt) => {
       const li = document.createElement("li");
-      li.textContent = opt.label;
+      li.innerHTML = renderOption(opt);
+      if (opt.title) li.title = opt.title;
       // mousedown (not click) so it fires before the input's blur
       li.addEventListener("mousedown", (e) => {
         e.preventDefault();
@@ -183,6 +282,7 @@ function setupPicker({ inputId, listId, getOptions, onPick }) {
   }
 
   input.addEventListener("input", update);
+  input.addEventListener("focus", update);
   input.addEventListener("blur", () => setTimeout(close, 100));
   input.addEventListener("keydown", (e) => {
     const items = [...list.querySelectorAll("li")];
@@ -193,6 +293,7 @@ function setupPicker({ inputId, listId, getOptions, onPick }) {
         ? (highlighted + 1) % items.length
         : (highlighted - 1 + items.length) % items.length;
       items.forEach((li, i) => li.classList.toggle("highlighted", i === highlighted));
+      items[highlighted].scrollIntoView({ block: "nearest" });
     } else if (e.key === "Enter") {
       e.preventDefault();
       const idx = highlighted >= 0 ? highlighted : 0;
@@ -201,14 +302,28 @@ function setupPicker({ inputId, listId, getOptions, onPick }) {
       close();
     }
   });
+  return { update };
 }
 
-setupPicker({
+const movePicker = setupPicker({
   inputId: "move-input",
   listId: "move-suggestions",
   getOptions: (q) =>
-    MOVE_LIST.filter((m) => m.name.toLowerCase().includes(q) && !state.moves.includes(m.id))
-      .map((m) => ({ label: m.name, id: m.id })),
+    MOVE_LIST.filter((m) =>
+      (!q || m.name.toLowerCase().includes(q)) &&
+      (!state.moveCategory || m.category === state.moveCategory) &&
+      !state.moves.includes(m.id))
+      .map((m) => ({ ...m, title: m.desc })),
+  renderOption: (m) => {
+    const acc = m.accuracy === true ? "—" : m.accuracy + "%";
+    const bp = m.category === "Status" ? "—" : m.basePower;
+    return `<span class="opt-name">${m.name}</span>
+      <span class="opt-meta">
+        <span class="type-badge" style="background:${TYPE_COLORS[m.type] || "#666"}">${m.type}</span>
+        <span class="cat-badge" style="background:${CATEGORY_COLORS[m.category] || "#666"}">${m.category.slice(0, 4)}</span>
+        <span class="opt-nums">BP ${bp} · Acc ${acc}</span>
+      </span>`;
+  },
   onPick: (opt) => {
     state.moves.push(opt.id);
     renderSelectedChips();
@@ -219,8 +334,10 @@ setupPicker({
   inputId: "ability-input",
   listId: "ability-suggestions",
   getOptions: (q) =>
-    ABILITY_LIST.filter((a) => a.toLowerCase().includes(q))
-      .map((a) => ({ label: a })),
+    ABILITY_LIST.filter((a) => !q || a.toLowerCase().includes(q))
+      .map((a) => ({ label: a, title: DATA.abilityInfo[a] || "" })),
+  renderOption: (a) =>
+    `<span class="opt-name">${a.label}</span><span class="opt-desc">${esc(a.title)}</span>`,
   onPick: (opt) => {
     state.ability = opt.label; // single-select: replaces previous
     renderSelectedChips();
@@ -231,10 +348,11 @@ function renderSelectedChips() {
   const moveWrap = document.getElementById("move-selected");
   moveWrap.innerHTML = "";
   for (const id of state.moves) {
+    const info = DATA.moveInfo[id];
     const chip = document.createElement("button");
     chip.className = "selected-chip";
-    chip.textContent = DATA.moveNames[id];
-    chip.title = "Remove";
+    chip.textContent = info.name;
+    chip.title = `${info.desc}  (BP ${info.category === "Status" ? "—" : info.basePower}, Acc ${info.accuracy === true ? "—" : info.accuracy + "%"})`;
     chip.addEventListener("click", () => {
       state.moves = state.moves.filter((m) => m !== id);
       renderSelectedChips();
@@ -249,7 +367,7 @@ function renderSelectedChips() {
     const chip = document.createElement("button");
     chip.className = "selected-chip";
     chip.textContent = state.ability;
-    chip.title = "Remove";
+    chip.title = DATA.abilityInfo[state.ability] || "";
     chip.addEventListener("click", () => {
       state.ability = null;
       renderSelectedChips();
@@ -258,6 +376,37 @@ function renderSelectedChips() {
     abilityWrap.appendChild(chip);
   }
 }
+
+// ---------- move category filter ----------
+document.querySelectorAll(".cat-chip").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const cat = btn.dataset.cat;
+    state.moveCategory = state.moveCategory === cat ? null : cat;
+    document.querySelectorAll(".cat-chip").forEach((b) =>
+      b.classList.toggle("active", b.dataset.cat === state.moveCategory));
+    const input = document.getElementById("move-input");
+    input.focus();
+    movePicker.update();
+  });
+});
+
+// ---------- format selector ----------
+document.querySelectorAll(".format-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    state.format = btn.dataset.format;
+    document.querySelectorAll(".format-btn").forEach((b) =>
+      b.classList.toggle("active", b.dataset.format === state.format));
+    render();
+  });
+});
+
+// ---------- IV toggle ----------
+document.getElementById("iv-toggle").addEventListener("change", (e) => {
+  state.lv50 = e.target.checked;
+  document.getElementById("stat-mode-label").textContent =
+    state.lv50 ? "Minimum stats at Lv. 50 (31 IVs, neutral)" : "Minimum base stats";
+  render();
+});
 
 // ---------- stat inputs ----------
 document.querySelectorAll("#stat-inputs input").forEach((input) => {
@@ -281,7 +430,8 @@ document.getElementById("clear-all").addEventListener("click", () => {
   state.moves = [];
   state.ability = null;
   state.statMins = {};
-  document.querySelectorAll(".type-chip").forEach((b) => b.classList.remove("active"));
+  state.moveCategory = null;
+  document.querySelectorAll(".type-chip, .cat-chip").forEach((b) => b.classList.remove("active"));
   document.querySelectorAll("#stat-inputs input").forEach((i) => (i.value = ""));
   renderSelectedChips();
   render();

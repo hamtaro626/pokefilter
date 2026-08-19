@@ -1,4 +1,23 @@
-# PokéFilter — SPEC (v0.1)
+# PokéFilter — SPEC (v0.2)
+
+## v0.2 additions (2026-08-19)
+- **Regulation selector**: Reg M-B (current, 310 Pokémon) / Reg M-A (272).
+  Legality from Showdown's `championsregma` mod; tiers shown per regulation.
+- **Move/ability details**: pickers open on focus with the full scrollable
+  list; move rows show type, Physical/Special/Status, BP, and accuracy;
+  descriptions on hover (Showdown text data, with Champions-modified base
+  powers merged in — e.g. Apple Acid is 90 BP in Champions, not 80).
+- **Category filter**: Physical/Special/Status chips narrow the move picker.
+- **IV toggle**: switch between base stats and Lv. 50 stats (31 IVs, neutral
+  nature — the numbers the Champions UI shows). Stat filters follow the toggle.
+- **Usage stats**: click any card for live ranked usage (moves, abilities,
+  held items with %) from the championsbattledata.com API, Doubles/Singles tabs.
+  Caveat: that API only retains the current season, so Reg M-A historical
+  usage is not available anywhere — usage is always current-season.
+
+---
+
+# Original v0.1 spec
 
 ## What it is
 A web app for Pokémon Champions competitive players. You describe what you want

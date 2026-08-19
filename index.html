@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PokéFilter — Pokémon Champions team-building search</title>
   <meta name="description" content="Find every Pokémon Champions Pokémon that matches your moves, ability, types, and stat requirements.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%23e3350d%22/><rect x=%225%22 y=%2247%22 width=%2290%22 height=%226%22 fill=%22%2314171c%22/><circle cx=%2250%22 cy=%2250%22 r=%2214%22 fill=%22%23fff%22 stroke=%22%2314171c%22 stroke-width=%225%22/></svg>">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,12 +18,25 @@
     <section class="filters" aria-label="Filters">
 
       <div class="filter-group">
+        <h2>Regulation</h2>
+        <div class="segmented">
+          <button class="format-btn active" data-format="regmb" type="button">Reg M-B <span class="hint">current</span></button>
+          <button class="format-btn" data-format="regma" type="button">Reg M-A</button>
+        </div>
+      </div>
+
+      <div class="filter-group">
         <h2>Types <span class="hint">pick up to 2 — must have all</span></h2>
         <div id="type-chips" class="type-chips"></div>
       </div>
 
       <div class="filter-group">
         <h2>Moves <span class="hint">must learn all selected</span></h2>
+        <div class="cat-chips">
+          <button class="cat-chip" data-cat="Physical" type="button">Physical</button>
+          <button class="cat-chip" data-cat="Special" type="button">Special</button>
+          <button class="cat-chip" data-cat="Status" type="button">Status</button>
+        </div>
         <div class="picker">
           <input id="move-input" type="text" placeholder="Type a move, e.g. Icy Wind…" autocomplete="off">
           <ul id="move-suggestions" class="suggestions" hidden></ul>
@@ -40,7 +54,11 @@
       </div>
 
       <div class="filter-group">
-        <h2>Minimum base stats</h2>
+        <h2 id="stat-mode-label">Minimum base stats</h2>
+        <label class="iv-toggle">
+          <input type="checkbox" id="iv-toggle">
+          Show Lv. 50 stats (31 IVs, like the Champions UI)
+        </label>
         <div class="stat-inputs" id="stat-inputs">
           <label>HP <input type="number" data-stat="hp" min="0" max="255" placeholder="0"></label>
           <label>Atk <input type="number" data-stat="atk" min="0" max="255" placeholder="0"></label>
@@ -78,8 +96,9 @@
   </main>
 
   <footer class="site-footer">
-    <p>Data: <a href="https://github.com/smogon/pokemon-showdown" target="_blank" rel="noopener">Pokémon Showdown</a> Champions mod ·
-    Base stats shown (not level-50 values) · Not affiliated with Nintendo/The Pokémon Company</p>
+    <p>Data: <a href="https://github.com/smogon/pokemon-showdown" target="_blank" rel="noopener">Pokémon Showdown</a> Champions mods ·
+    Usage stats: <a href="https://championsbattledata.com" target="_blank" rel="noopener">championsbattledata.com</a> ·
+    Not affiliated with Nintendo/The Pokémon Company</p>
   </footer>
 
   <script src="app.js"></script>
