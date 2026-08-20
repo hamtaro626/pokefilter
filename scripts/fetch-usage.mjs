@@ -15,7 +15,16 @@ import { dirname, join } from "node:path";
 
 const API = "https://championsbattledata.com/api/battle";
 const FORMATS = ["Doubles", "Singles"];
-const CATEGORIES = { move: "moves", ability: "abilities", held_item: "items" };
+const CATEGORIES = {
+  move: "moves",
+  ability: "abilities",
+  held_item: "items",
+  stat_alignment: "natures",  // row.name is the nature ("Jolly")
+  stat_points: "spreads",     // row has no name; key is built from the point fields
+};
+
+// Champions distributes 0-32 "stat points" per stat rather than 252 EVs.
+const POINT_FIELDS = ["hp_points", "attack_points", "defense_points", "sp_atk_points", "sp_def_points", "speed_points"];
 const MIN_DAYS_BETWEEN_SNAPSHOTS = 6;
 
 const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -52,7 +61,8 @@ async function fetchAll(urls, concurrency = 6) {
   return results;
 }
 
-// rows -> { moves: {name: pct}, abilities: {...}, items: {...} }
+// rows -> { moves: {name: pct}, abilities: {...}, items: {...},
+//           natures: {...}, spreads: {"2/32/0/0/0/32": pct} }
 function rowsToRecord(rows) {
   const rec = {};
   for (const row of rows) {
@@ -60,7 +70,16 @@ function rowsToRecord(rows) {
     if (!bucket) continue;
     const pct = parseFloat(row.percentage);
     if (!Number.isFinite(pct)) continue;
-    (rec[bucket] ??= {})[row.name] = pct;
+    let key = row.name;
+    if (bucket === "spreads") {
+      const pts = POINT_FIELDS.map((f) => Number(row[f]) || 0);
+      if (!pts.some((p) => p > 0)) continue;
+      key = pts.join("/");
+    }
+    if (!key) continue;
+    // a spread/nature can appear twice in one snapshot; keep the larger share
+    const prev = rec[bucket]?.[key];
+    (rec[bucket] ??= {})[key] = prev == null ? pct : Math.max(prev, pct);
   }
   return Object.keys(rec).length ? rec : null;
 }

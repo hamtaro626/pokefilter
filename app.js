@@ -10,12 +10,26 @@ const TYPE_COLORS = {
 
 const CATEGORY_COLORS = { Physical: "#C22E28", Special: "#6390F0", Status: "#A8A77A" };
 
+// Champions spreads are 0-32 "stat points" per stat, in this order.
+const SPREAD_ORDER = ["HP", "Atk", "Def", "SpA", "SpD", "Spe"];
+
+// nature -> [raised, lowered]; neutral natures omitted
+const NATURES = {
+  Adamant: ["Atk", "SpA"], Bold: ["Def", "Atk"], Brave: ["Atk", "Spe"],
+  Calm: ["SpD", "Atk"], Careful: ["SpD", "SpA"], Gentle: ["SpD", "Def"],
+  Hasty: ["Spe", "Def"], Impish: ["Def", "SpA"], Jolly: ["Spe", "SpA"],
+  Lax: ["Def", "SpD"], Lonely: ["Atk", "Def"], Mild: ["SpA", "Def"],
+  Modest: ["SpA", "Atk"], Naive: ["Spe", "SpD"], Naughty: ["Atk", "SpD"],
+  Quiet: ["SpA", "Spe"], Rash: ["SpA", "SpD"], Relaxed: ["Def", "Spe"],
+  Sassy: ["SpD", "Spe"], Timid: ["Spe", "Atk"],
+};
+
 const SPRITE_BASE = "https://play.pokemonshowdown.com/sprites/gen5";
 
 // ---------- state ----------
 const state = {
   format: "regmb",    // "regmb" (current) | "regma"
-  nameQuery: "",      // substring match on Pokémon name
+  nameQuery: [],      // substring terms, OR'd together (comma-separated input)
   types: [],          // must-have types — max 2
   excludeTypes: [],   // must-NOT-have types
   mega: "all",        // "all" | "hide" | "only"
@@ -73,7 +87,10 @@ function displayStats(p) {
 // ---------- filtering ----------
 function matches(p) {
   if (!p.formats[state.format]) return false;
-  if (state.nameQuery && !p.name.toLowerCase().includes(state.nameQuery)) return false;
+  if (state.nameQuery.length) {
+    const name = p.name.toLowerCase();
+    if (!state.nameQuery.some((term) => name.includes(term))) return false;
+  }
   if (state.mega === "hide" && isMega(p)) return false;
   if (state.mega === "only" && !isMega(p)) return false;
   for (const t of state.types) if (!p.types.includes(t)) return false;
@@ -261,18 +278,44 @@ async function fillDetail(p) {
     body.textContent = "No ranked usage data for this Pokémon.";
     return;
   }
-  const section = (bucket, title, n) => {
+  const section = (bucket, title, n, label = (k) => k) => {
     const entries = Object.entries(rec[bucket] ?? {})
       .map(([name, series]) => ({ name, series, latest: [...series].reverse().find((v) => v != null) ?? 0 }))
       .sort((a, b) => b.latest - a.latest)
       .slice(0, n);
     if (!entries.length) return "";
     return `<div class="usage-col"><h3>${title}</h3>${entries.map((e) =>
-      `<div class="usage-row"><span>${e.name}</span>${trendCell(e.series)}</div>`).join("")}</div>`;
+      `<div class="usage-row">${label(e.name)}${trendCell(e.series)}</div>`).join("")}</div>`;
   };
+
+  // "2/32/0/0/0/32" -> "32 Atk / 32 Spe / 2 HP" (invested stats first, then HP)
+  const spreadLabel = (key) => {
+    const pts = key.split("/").map(Number);
+    const parts = pts
+      .map((v, i) => ({ v, stat: SPREAD_ORDER[i] }))
+      .filter((p) => p.v > 0)
+      .sort((a, b) => b.v - a.v)
+      .map((p) => `<span class="spread-part${p.v >= 24 ? " max" : ""}">${p.v} ${p.stat}</span>`);
+    const total = pts.reduce((a, b) => a + b, 0);
+    return `<span class="spread" title="${total} of 66 stat points used">${
+      parts.join('<span class="spread-sep">/</span>') || "no investment"}</span>`;
+  };
+
+  const natureLabel = (name) => {
+    const n = NATURES[name];
+    return `<span>${name}${n ? ` <span class="nature-mod">+${n[0]} −${n[1]}</span>` : ` <span class="nature-mod">neutral</span>`}</span>`;
+  };
+
   body.innerHTML =
-    (section("moves", "Moves", 8) + section("abilities", "Abilities", 3) + section("items", "Items", 5)) ||
+    (section("moves", "Moves", 8, (k) => `<span>${k}</span>`) +
+     section("abilities", "Abilities", 3, (k) => `<span>${k}</span>`) +
+     section("items", "Items", 5, (k) => `<span>${k}</span>`) +
+     section("natures", "Natures", 4, natureLabel) +
+     section("spreads", "Stat point spreads", 5, spreadLabel)) ||
     "No ranked usage data for this Pokémon.";
+  if (rec.spreads) {
+    body.innerHTML += `<p class="usage-note">Spreads are Champions stat points — 66 to spend, 32 max in any one stat.</p>`;
+  }
   body.innerHTML += `<p class="usage-note">Snapshots: ${USAGE.dates.join(" · ")}${
     p.baseId !== p.id ? ` — data covers ${p.baseId} incl. all forms` : ""}</p>`;
 }
@@ -437,8 +480,13 @@ function renderSelectedChips() {
 }
 
 // ---------- name search ----------
+// comma acts as OR: "garchomp, dragonite" matches either
 document.getElementById("name-input").addEventListener("input", (e) => {
-  state.nameQuery = e.target.value.trim().toLowerCase();
+  state.nameQuery = e.target.value
+    .toLowerCase()
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
   render();
 });
 
@@ -508,7 +556,7 @@ document.getElementById("sort-dir").addEventListener("click", (e) => {
 });
 
 document.getElementById("clear-all").addEventListener("click", () => {
-  state.nameQuery = "";
+  state.nameQuery = [];
   state.types = [];
   state.excludeTypes = [];
   state.mega = "all";

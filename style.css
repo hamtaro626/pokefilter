@@ -22,10 +22,15 @@ body {
   min-height: 100vh;
 }
 
-.site-header { text-align: center; padding: 2rem 1rem 1rem; }
-.site-header h1 { font-size: 2.2rem; letter-spacing: -0.02em; }
+.site-header { text-align: center; padding: 1.5rem 1rem 1rem; }
+.site-header h1 { font-size: 2.2rem; letter-spacing: -0.02em; line-height: 0; }
+.site-header .logo {
+  width: min(360px, 70vw);
+  height: auto;
+  display: inline-block;
+}
 .site-header .accent { color: var(--accent); }
-.tagline { color: var(--muted); margin-top: 0.25rem; }
+.tagline { color: var(--muted); margin-top: 0.5rem; }
 
 main {
   max-width: 1100px;
@@ -351,8 +356,16 @@ main {
   color: var(--accent-2);
   margin-bottom: 0.15rem;
 }
-.usage-row { display: flex; justify-content: space-between; padding: 0.05rem 0; }
+.usage-row { display: flex; justify-content: space-between; padding: 0.05rem 0; align-items: center; }
 .usage-row span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.nature-mod { color: var(--muted); font-size: 0.65rem; margin-left: 0.15rem; }
+
+/* stat point spreads, e.g. "32 Atk / 32 Spe / 2 HP" */
+.spread { font-variant-numeric: tabular-nums; }
+.spread-part { color: var(--text); }
+.spread-part.max { color: var(--accent-2); font-weight: 600; }
+.spread-sep { color: var(--muted); margin: 0 0.28rem; opacity: 0.6; }
 
 .site-footer {
   text-align: center;

@@ -1,0 +1,15 @@
+{
+  "name": "PokéFilter",
+  "short_name": "PokéFilter",
+  "description": "Find every Pokémon Champions Pokémon that matches your moves, ability, types, and stat requirements.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#14171c",
+  "theme_color": "#222224",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

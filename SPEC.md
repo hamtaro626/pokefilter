@@ -1,4 +1,21 @@
-# PokéFilter — SPEC (v0.3)
+# PokéFilter — SPEC (v0.4)
+
+## v0.4 additions (2026-08-19)
+- **Branding**: Alec's logo is now the site icon. `assets/icon-*.png` (16/32/48/
+  180/192/512) are a square "Poké" crop — the full wordmark is illegible below
+  ~64px, the crop stays readable at 16px — plus `site.webmanifest` so
+  Add-to-Home-Screen works. The full wordmark is the page header.
+  Source art kept at `assets/logo-original.png`.
+- **Stat point spread usage**: the usage tab now has **Natures** (with their
+  +/− stat, e.g. Jolly +Spe −SpA) and **Stat point spreads**, rendered the way
+  players read them ("32 Atk / 32 Spe / 2 HP"), maxed stats highlighted.
+  Champions gives **66 stat points, 32 max per stat** (confirmed empirically:
+  2849/3073 observed spreads sum to exactly 66) — these are not 252-EV spreads.
+- **Comma = OR in name search**: "garchomp, dragonite" matches either.
+
+---
+
+# v0.3 spec
 
 ## v0.3 additions (2026-08-19)
 - **Detail panel tabs**: click a card for Usage (as before) or **All moves** —
