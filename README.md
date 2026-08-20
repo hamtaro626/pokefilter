@@ -37,6 +37,22 @@ node scripts/fetch-usage.mjs             # append a snapshot now
 node scripts/fetch-usage.mjs --backfill  # rebuild from the API's daily history
 ```
 
+### History before 2026-07-16
+
+championsbattledata.com only retains ~31 days, so everything before its oldest
+record comes from [Smogon's monthly Showdown stats](https://www.smogon.com/stats/)
+instead, covering Champions back to its April 2026 release:
+
+```bash
+node scripts/fetch-history.mjs           # add the pre-in-game months (run once)
+```
+
+That is a **different player population** than the in-game ladder, so those
+dates are tagged `source: "showdown"`, labelled in the UI, and excluded from
+week-over-week trend arrows. Note `fetch-usage.mjs --backfill` rebuilds from
+the in-game API alone — re-run `fetch-history.mjs` afterwards to restore the
+historical months. The weekly Action preserves them automatically.
+
 ## Files
 
 | File | What it is |

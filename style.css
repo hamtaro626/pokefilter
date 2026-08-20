@@ -374,3 +374,5 @@ main {
   padding: 2rem 1rem;
 }
 .site-footer a { color: var(--muted); }
+
+.trend.cross { color: var(--accent-2); cursor: help; }

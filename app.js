@@ -208,24 +208,56 @@ function loadUsageFile() {
   return usagePromise;
 }
 
+const SOURCE_LABEL = { ingame: "in-game", showdown: "Showdown ladder" };
+const sourceKind = (i) => USAGE?.sources?.[i]?.kind ?? "ingame";
+
 function trendCell(series) {
   // series is aligned to USAGE.dates; latest value + change vs previous point
-  let latest = null, prev = null;
+  let latestIdx = -1, prevIdx = -1;
   for (let i = series.length - 1; i >= 0; i--) {
     if (series[i] == null) continue;
-    if (latest === null) latest = series[i];
-    else { prev = series[i]; break; }
+    if (latestIdx < 0) latestIdx = i;
+    else { prevIdx = i; break; }
   }
-  if (latest === null) return "";
+  if (latestIdx < 0) return "";
+  const latest = series[latestIdx];
   let delta = "";
-  if (prev !== null) {
-    const d = +(latest - prev).toFixed(1);
-    if (d > 0) delta = ` <span class="trend up">▲${d}</span>`;
-    else if (d < 0) delta = ` <span class="trend down">▼${Math.abs(d)}</span>`;
-    else delta = ` <span class="trend flat">•</span>`;
+  if (prevIdx >= 0) {
+    if (sourceKind(prevIdx) !== sourceKind(latestIdx)) {
+      // a jump between two different ladders isn't a trend — don't draw one
+      delta = ` <span class="trend cross" title="Previous point comes from a different source (${
+        SOURCE_LABEL[sourceKind(prevIdx)]}), so the change isn't comparable">↔</span>`;
+    } else {
+      const d = +(latest - series[prevIdx]).toFixed(1);
+      if (d > 0) delta = ` <span class="trend up">▲${d}</span>`;
+      else if (d < 0) delta = ` <span class="trend down">▼${Math.abs(d)}</span>`;
+      else delta = ` <span class="trend flat">•</span>`;
+    }
   }
-  const history = USAGE.dates.map((d, i) => `${d.slice(5)}: ${series[i] ?? "—"}%`).join("  ");
+  const history = USAGE.dates
+    .map((d, i) => `${d.slice(5)}: ${series[i] ?? "—"}%${sourceKind(i) === "showdown" ? " (Showdown)" : ""}`)
+    .join("  ");
   return `<span title="${esc(history)}">${latest}%${delta}</span>`;
+}
+
+// "Apr 30 – Jun 30 monthly from the Showdown ladder · Jul 16 on, weekly in-game"
+function provenanceNote() {
+  const runs = [];
+  USAGE.dates.forEach((date, i) => {
+    const kind = sourceKind(i);
+    const last = runs[runs.length - 1];
+    if (last && last.kind === kind) last.dates.push(date);
+    else runs.push({ kind, dates: [date] });
+  });
+  return runs.map((run) => {
+    const span = run.dates.length > 1
+      ? `${run.dates[0]} → ${run.dates[run.dates.length - 1]}`
+      : run.dates[0];
+    const reg = run.kind === "showdown"
+      ? ` (Reg ${USAGE.sources[USAGE.dates.indexOf(run.dates[0])]?.formats?.Doubles?.regulation ?? "M-A"}, monthly)`
+      : " (weekly)";
+    return `${span}: ${SOURCE_LABEL[run.kind]}${reg}`;
+  }).join(" · ");
 }
 
 async function fillDetail(p) {
@@ -316,7 +348,7 @@ async function fillDetail(p) {
   if (rec.spreads) {
     body.innerHTML += `<p class="usage-note">Spreads are Champions stat points — 66 to spend, 32 max in any one stat.</p>`;
   }
-  body.innerHTML += `<p class="usage-note">Snapshots: ${USAGE.dates.join(" · ")}${
+  body.innerHTML += `<p class="usage-note">${provenanceNote()}${
     p.baseId !== p.id ? ` — data covers ${p.baseId} incl. all forms` : ""}</p>`;
 }
 

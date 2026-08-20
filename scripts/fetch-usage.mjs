@@ -86,6 +86,8 @@ function rowsToRecord(rows) {
 
 // snapshots: Map dateIso -> { format -> { baseId -> record } }
 const snapshots = new Map();
+// dateIso -> provenance ({kind:"ingame"} here; fetch-history.mjs adds "showdown")
+const sourceByDate = new Map();
 
 if (backfill) {
   for (const format of FORMATS) {
@@ -99,6 +101,7 @@ if (backfill) {
         const rec = rowsToRecord(day.rows ?? []);
         if (!rec) continue;
         if (!snapshots.has(date)) snapshots.set(date, {});
+        sourceByDate.set(date, { kind: "ingame" });
         (snapshots.get(date)[format] ??= {})[baseIds[i]] = rec;
       }
     });
@@ -125,8 +128,9 @@ if (backfill) {
       console.log(`Last snapshot ${last} is <${MIN_DAYS_BETWEEN_SNAPSHOTS} days old — nothing to do.`);
       process.exit(0);
     }
-    // reload existing series into snapshots
+    // reload existing series into snapshots, preserving each date's source
     existing.dates.forEach((date, di) => {
+      sourceByDate.set(date, existing.sources?.[di] ?? { kind: "ingame" });
       const perFormat = {};
       for (const format of FORMATS) {
         for (const [id, buckets] of Object.entries(existing.formats[format] ?? {})) {
@@ -149,6 +153,7 @@ if (backfill) {
       const rec = rowsToRecord(json?.rows ?? []);
       if (!rec) return;
       snapshots.set(today, snapshots.get(today) ?? {});
+      sourceByDate.set(today, { kind: "ingame" });
       (snapshots.get(today)[format] ??= {})[baseIds[i]] = rec;
     });
   }
@@ -173,7 +178,12 @@ for (const format of FORMATS) {
 }
 
 mkdirSync(join(projectRoot, "data", "usage"), { recursive: true });
-writeFileSync(outPath, JSON.stringify({ updated: today, dates, formats }));
+writeFileSync(outPath, JSON.stringify({
+  updated: today,
+  dates,
+  sources: dates.map((d) => sourceByDate.get(d) ?? { kind: "ingame" }),
+  formats,
+}));
 
 const covered = Object.keys(formats.Doubles).length;
 console.log(`\nWrote ${dates.length} snapshot dates (${dates[0]} → ${dates[dates.length - 1]}), ` +

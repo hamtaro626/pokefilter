@@ -1,4 +1,32 @@
-# PokéFilter — SPEC (v0.4)
+# PokéFilter — SPEC (v0.5)
+
+## v0.5 additions (2026-08-20)
+- **Usage history back to release.** Champions launched 2026-04-08, but
+  championsbattledata.com only keeps ~31 days (its oldest record is
+  2026-07-16), so the earlier months are not obtainable from the in-game
+  source at all — verified: `days` caps at 31, seasons M1-M3 404, older asset
+  paths return the SPA shell, and the Wayback Machine holds one pre-July
+  capture with no usage data in it.
+- Those months are instead backfilled from **Smogon's monthly Showdown stats**
+  (`scripts/fetch-history.mjs`), which cover the Champions ladder formats from
+  April 2026 on. VGC maps to Doubles, BSS to Singles; the regulation with the
+  most battles that month wins (Reg M-A through June).
+- This is a **different player population**, so it is never silently mixed:
+  every date carries a `sources[]` entry, historical rows are labelled
+  "(Showdown)" on hover, the panel footer spells out the split, and a
+  week-over-week arrow is **suppressed** (shown as `↔`) whenever the two points
+  being compared come from different sources.
+- Why it's trustworthy enough to include: the Showdown champions mod uses the
+  same 0-32 stat point system, and on the one overlapping month (July 2026) its
+  numbers track the in-game ones within a few points, with an identical top
+  spread. Cutoff 0 (all ladder players) matched the in-game population best.
+- Mega forms are merged into their base species by summing weighted counts,
+  **except abilities** — a Mega's ability only applies post-Mega-evolution and
+  the in-game source reports the pre-Mega ability instead.
+
+---
+
+# v0.4 spec
 
 ## v0.4 additions (2026-08-19)
 - **Branding**: Alec's logo is now the site icon. `assets/icon-*.png` (16/32/48/
