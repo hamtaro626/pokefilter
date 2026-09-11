@@ -1,0 +1,52 @@
+name: Update data
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # daily 06:00 UTC
+  workflow_dispatch: {}    # allow manual runs from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Daily: pick up new regulations, Pokémon, learnsets and move changes from
+      # Showdown. Writes nothing unless the data actually changed.
+      - name: Rebuild Pokémon data from Showdown
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/build-data.mjs
+
+      # Mondays (or manual runs): append this week's usage snapshot. Runs even
+      # if the Showdown step failed, so one broken source doesn't block the other.
+      - name: Fetch usage snapshot
+        if: ${{ !cancelled() }}
+        run: |
+          if [ "$(date -u +%u)" = "1" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            node scripts/fetch-usage.mjs
+          else
+            echo "Not Monday — skipping usage snapshot"
+          fi
+
+      - name: Commit and push if changed
+        if: ${{ !cancelled() }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/pokemon.json data/regulations.json data/usage/usage.json
+          git diff --cached --quiet && echo "No changes" && exit 0
+          msg=""
+          git diff --cached --quiet -- data/pokemon.json data/regulations.json || msg="Showdown data update"
+          git diff --cached --quiet -- data/usage/usage.json || msg="${msg:+$msg + }Weekly usage snapshot"
+          git commit -m "$msg $(date -u +%F)"
+          git push

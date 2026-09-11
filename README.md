@@ -15,22 +15,42 @@ Then open <http://localhost:8451> in your browser.
 (The page must be served over http — opening `index.html` directly with
 `file://` blocks the data file from loading.)
 
-## Refresh the data
+## Data updates are automatic
 
-Data comes from Pokémon Showdown's `champions` mod. When a new Champions
-season adds Pokémon or moves:
+A GitHub Action (`.github/workflows/update-data.yml`) runs **daily at 06:00 UTC**:
+
+1. `node scripts/build-data.mjs` rebuilds `data/pokemon.json` from Pokémon
+   Showdown. New regulations are **discovered automatically** from Showdown's
+   format list, so when Reg M-D ships the app gains an "M-D" button, its new
+   Pokémon, learnsets, and move changes — no code edits needed. The script only
+   writes when something actually changed, so quiet days produce no commit.
+2. On **Mondays** it also appends a usage snapshot (see below).
+
+If Showdown ever restructures its files, the build refuses to write (it checks
+the current regulation still has 100+ Pokémon) and the Action fails — GitHub
+emails you, and the live site keeps its last good data.
+
+Manual run, same as the Action:
 
 ```bash
 node scripts/build-data.mjs
 ```
 
-This rewrites `data/pokemon.json`. Nothing else needs to change.
+### How old regulations survive
+
+Showdown keeps the current regulation in its `champions` mod, moves the previous
+one to `championsregmX`, and eventually deletes it (M-A was deleted when M-C
+launched). Those retired mods also only partly undo later changes. So
+`data/regulations.json` records, for each retired regulation, the last Showdown
+commit where it was still current, and the build always reads it from there —
+old regulations show exactly what was legal while they were live.
 
 ## Usage stats
 
-Ranked usage (from championsbattledata.com) is snapshotted **weekly** by a
-GitHub Action (Mondays 06:00 UTC) into `data/usage/usage.json`, building a
-time series the app uses for week-over-week trend arrows. Manual runs:
+Ranked usage (from championsbattledata.com) is snapshotted **weekly** (Mondays)
+into `data/usage/usage.json`, building a time series the app uses for
+week-over-week trend arrows. Each snapshot is tagged with the regulation being
+played, and no trend arrow is drawn across a regulation change. Manual runs:
 
 ```bash
 node scripts/fetch-usage.mjs             # append a snapshot now
@@ -58,6 +78,10 @@ historical months. The weekly Action preserves them automatically.
 | File | What it is |
 |---|---|
 | `index.html` / `style.css` / `app.js` | The whole app — static, no build step |
-| `data/pokemon.json` | 310 Champions-legal Pokémon with stats, abilities, learnsets |
+| `data/pokemon.json` | Every Champions-legal Pokémon (all regulations) with stats, abilities, per-regulation legality and learnsets |
+| `data/regulations.json` | Known regulations and the Showdown commit each was built from |
+| `data/usage/usage.json` | Weekly usage time series |
 | `scripts/build-data.mjs` | Regenerates `data/pokemon.json` from Showdown's GitHub data |
-| `SPEC.md` | v0.1 scope, data decisions, and the explicit not-doing list |
+| `scripts/fetch-usage.mjs` / `fetch-history.mjs` | Usage snapshots / pre-July history |
+| `.github/workflows/update-data.yml` | Daily data + Monday usage automation |
+| `SPEC.md` | Scope, data decisions, and the explicit not-doing lists |

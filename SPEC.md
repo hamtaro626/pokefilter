@@ -1,4 +1,52 @@
-# PokéFilter — SPEC (v0.5)
+# PokéFilter — SPEC (v0.6)
+
+## v0.6 additions (2026-09-11)
+- **Reg M-C** (launched 2026-09-09): 341 Pokémon, 31 new vs M-B — including
+  Salamence/Mega Salamence, Mega Golisopod, Mega Baxcalibur, and the Mega-Z
+  forms of Garchomp, Lucario, and Absol. None were removed. Cards for Pokémon
+  not in the previous regulation get a **NEW** badge.
+- **Regulations are discovered, not hardcoded.** `build-data.mjs` reads
+  Showdown's `config/formats.ts` for `[Gen 9 Champions] VGC 20xx Reg X-Y`
+  formats and the mod each uses; the regulation in the `champions` mod is
+  current. The selector buttons are generated from `pokemon.json`.
+- **Retired regulations are frozen at their last current commit.**
+  `data/regulations.json` stores, per regulation, the Showdown commit it's
+  built from: the latest one for the current regulation, and for a retired one
+  the last commit where it was still current. Two reasons: Showdown deleted
+  `championsregma` when M-C launched (breaking the v0.5 build), and its frozen
+  `championsregmb` mod only partly reverts M-C's changes — it restores
+  Archaludon's learnset but still inherits the Slash M-C added to 37 others, so
+  building M-B from it would claim 44 Slash learners in a regulation where Slash
+  didn't exist. M-A and M-B were seeded with `81c39fb` (the commit just before
+  M-C). Trade-off: post-retirement Showdown fixes to an old regulation's data
+  aren't picked up.
+- **Per-regulation learnsets.** M-C changed existing learnsets (Slash added to
+  37 species/forms; Archaludon lost Metal Burst and Mirror Coat; Politoed lost
+  Pound), so a move filter now checks the selected regulation's learnset.
+  `moves` holds the newest learnset; `movesByFormat` stores an older
+  regulation's list only where it differs.
+  Move *stats* (BP/accuracy) still come from the current regulation — the only
+  per-regulation stat difference Showdown models today is PP.
+- **Pinned to one Showdown commit per run**, and `pokedex.ts` now comes from
+  that commit rather than the client's `pokedex.json` (which lagged a
+  Mega Golisopod ability fix).
+- **Daily automation.** `update-data.yml` (replaces `update-usage.yml`) runs
+  the build daily and the usage snapshot on Mondays. The build only writes when
+  data changed (ignoring timestamp/commit), and refuses to write if the current
+  regulation has < 100 Pokémon, so a Showdown restructure fails loudly instead
+  of publishing an empty app.
+- **Usage snapshots carry `regulation` and `season`.** The API's ranked seasons
+  (M4, M5, M6…) run about monthly and don't line up with regulations (M-B
+  spanned M4-M5), so both are recorded. Trend arrows are suppressed (`↔`) across
+  a regulation change, like they already were across sources.
+
+### Not doing in v0.6
+- Per-regulation move stats/PP, or item legality per regulation.
+- Filtering usage by regulation — usage is always the live ladder, labelled.
+
+---
+
+# v0.5 spec
 
 ## v0.5 additions (2026-08-20)
 - **Usage history back to release.** Champions launched 2026-04-08, but

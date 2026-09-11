@@ -31,9 +31,12 @@ const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outPath = join(projectRoot, "data", "usage", "usage.json");
 const backfill = process.argv.includes("--backfill");
 
-const pokemon = JSON.parse(readFileSync(join(projectRoot, "data", "pokemon.json"), "utf8")).pokemon;
-const baseIds = [...new Set(pokemon.map((p) => p.baseId))];
-console.log(`${baseIds.length} base species, formats: ${FORMATS.join(", ")}`);
+const dataset = JSON.parse(readFileSync(join(projectRoot, "data", "pokemon.json"), "utf8"));
+const baseIds = [...new Set(dataset.pokemon.map((p) => p.baseId))];
+// Each date's source records the regulation being played, so the app never
+// draws a trend arrow across a regulation change.
+const regulation = dataset.regulations?.find((r) => r.current)?.label ?? null;
+console.log(`${baseIds.length} base species, formats: ${FORMATS.join(", ")}, Reg ${regulation ?? "?"}`);
 
 // dd_mm_yyyy -> yyyy-mm-dd
 const isoDate = (d) => {
@@ -89,10 +92,23 @@ const snapshots = new Map();
 // dateIso -> provenance ({kind:"ingame"} here; fetch-history.mjs adds "showdown")
 const sourceByDate = new Map();
 
+// The API's ranked seasons (M4, M5, …) run about monthly and don't line up with
+// regulations, so snapshots record both. Ask a few species until one has data.
+async function currentSeason() {
+  for (const id of baseIds.slice(0, 20)) {
+    try {
+      const json = await (await fetch(`${API}/Doubles/${id}?days=1`)).json();
+      if (json?.daily?.[0]?.season) return json.daily[0].season;
+    } catch {}
+  }
+  console.warn("Could not determine the current ranked season");
+  return null;
+}
+
 if (backfill) {
   for (const format of FORMATS) {
-    console.log(`Backfilling ${format} (daily history)...`);
-    const urls = baseIds.map((id) => `${API}/${format}/${id}?season=M4&days=31`);
+    console.log(`Backfilling ${format} (daily history, current season)...`);
+    const urls = baseIds.map((id) => `${API}/${format}/${id}?days=31`);
     const responses = await fetchAll(urls);
     responses.forEach((json, i) => {
       if (!json?.daily) return;
@@ -101,7 +117,7 @@ if (backfill) {
         const rec = rowsToRecord(day.rows ?? []);
         if (!rec) continue;
         if (!snapshots.has(date)) snapshots.set(date, {});
-        sourceByDate.set(date, { kind: "ingame" });
+        sourceByDate.set(date, { kind: "ingame", season: day.season ?? null, regulation });
         (snapshots.get(date)[format] ??= {})[baseIds[i]] = rec;
       }
     });
@@ -145,15 +161,16 @@ if (backfill) {
       snapshots.set(date, perFormat);
     });
   }
+  const season = await currentSeason();
   for (const format of FORMATS) {
-    console.log(`Fetching current ${format} data...`);
+    console.log(`Fetching current ${format} data (season ${season ?? "?"})...`);
     const urls = baseIds.map((id) => `${API}/${format}/${id}`);
     const responses = await fetchAll(urls);
     responses.forEach((json, i) => {
       const rec = rowsToRecord(json?.rows ?? []);
       if (!rec) return;
       snapshots.set(today, snapshots.get(today) ?? {});
-      sourceByDate.set(today, { kind: "ingame" });
+      sourceByDate.set(today, { kind: "ingame", season, regulation });
       (snapshots.get(today)[format] ??= {})[baseIds[i]] = rec;
     });
   }

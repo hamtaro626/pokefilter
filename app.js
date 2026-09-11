@@ -28,7 +28,7 @@ const SPRITE_BASE = "https://play.pokemonshowdown.com/sprites/gen5";
 
 // ---------- state ----------
 const state = {
-  format: "regmb",    // "regmb" (current) | "regma"
+  format: null,       // regulation id ("regmc", …) — set to the current one on load
   nameQuery: [],      // substring terms, OR'd together (comma-separated input)
   types: [],          // must-have types — max 2
   excludeTypes: [],   // must-NOT-have types
@@ -51,7 +51,17 @@ let expandedId = null;  // card with the detail panel open
 let detailTab = "usage";   // "usage" | "moves"
 let usageFormat = "Doubles";
 
-const isMega = (p) => /-Mega(-[XY])?$/.test(p.name);
+const isMega = (p) => /-Mega(-[A-Z])?$/.test(p.name); // incl. Mega-X / -Y / -Z forms
+
+// A learnset can differ between regulations (e.g. moves added in a later one);
+// movesByFormat only exists where it does.
+const movesFor = (p) => p.movesByFormat?.[state.format] ?? p.moves;
+
+// The regulation before the selected one (DATA.regulations is newest first).
+function previousRegulation() {
+  const i = DATA.regulations.findIndex((r) => r.id === state.format);
+  return DATA.regulations[i + 1] ?? null;
+}
 
 // ---------- boot ----------
 fetch("data/pokemon.json")
@@ -62,6 +72,8 @@ fetch("data/pokemon.json")
       .map(([id, info]) => ({ id, ...info }))
       .sort((a, b) => a.name.localeCompare(b.name));
     ABILITY_LIST = [...new Set(data.pokemon.flatMap((p) => p.abilities))].sort();
+    state.format = (data.regulations.find((r) => r.current) ?? data.regulations[0]).id;
+    buildFormatButtons();
     buildTypeChips();
     render();
   })
@@ -95,7 +107,8 @@ function matches(p) {
   if (state.mega === "only" && !isMega(p)) return false;
   for (const t of state.types) if (!p.types.includes(t)) return false;
   for (const t of state.excludeTypes) if (p.types.includes(t)) return false;
-  for (const m of state.moves) if (!p.moves.includes(m)) return false;
+  const moves = movesFor(p);
+  for (const m of state.moves) if (!moves.includes(m)) return false;
   if (state.ability && !p.abilities.includes(state.ability)) return false;
   const stats = displayStats(p);
   for (const [stat, min] of Object.entries(state.statMins)) {
@@ -141,7 +154,7 @@ const STAT_ROWS = [
 // Some Champions-exclusive Megas (Mega Falinks, Mega Raichu X…) have no
 // Showdown sprite yet — fall back to championsbattledata.com's official art.
 function fallbackSprite(name) {
-  const m = name.match(/^(.*)-Mega(?:-([XY]))?$/);
+  const m = name.match(/^(.*)-Mega(?:-([A-Z]))?$/);
   if (!m) return "";
   const file = `Mega ${m[1]}${m[2] ? " " + m[2] : ""}.png`;
   return encodeURI(`https://championsbattledata.com/pokemon_champions_assets/pokemon/${file}`);
@@ -153,6 +166,9 @@ function card(p) {
   el.dataset.id = p.id;
   const stats = displayStats(p);
   const scale = state.lv50 ? 260 : 200;
+  const prev = previousRegulation();
+  const newBadge = prev && !p.formats[prev.id]
+    ? `<span class="card-new" title="Not legal in Reg ${prev.label}">NEW</span>` : "";
 
   const statRows = STAT_ROWS.map(([key, label]) => {
     const v = stats[key];
@@ -175,7 +191,7 @@ function card(p) {
            data-fb="${fallbackSprite(p.name)}"
            onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){this.src=this.dataset.fb}else{this.style.visibility='hidden'}">
       <div>
-        <div class="card-name">${p.name}<span class="card-tier">${p.formats[state.format]}</span></div>
+        <div class="card-name">${p.name}<span class="card-tier">${p.formats[state.format]}</span>${newBadge}</div>
         <div class="card-types">${p.types.map(typeBadge).join("")}</div>
         <div class="card-abilities">${abilities}</div>
       </div>
@@ -210,6 +226,11 @@ function loadUsageFile() {
 
 const SOURCE_LABEL = { ingame: "in-game", showdown: "Showdown ladder" };
 const sourceKind = (i) => USAGE?.sources?.[i]?.kind ?? "ingame";
+// in-game snapshots carry `regulation`; Showdown months record it per format
+const regulationOf = (i) => {
+  const s = USAGE?.sources?.[i];
+  return s?.regulation ?? s?.formats?.Doubles?.regulation ?? null;
+};
 
 function trendCell(series) {
   // series is aligned to USAGE.dates; latest value + change vs previous point
@@ -223,10 +244,12 @@ function trendCell(series) {
   const latest = series[latestIdx];
   let delta = "";
   if (prevIdx >= 0) {
-    if (sourceKind(prevIdx) !== sourceKind(latestIdx)) {
-      // a jump between two different ladders isn't a trend — don't draw one
-      delta = ` <span class="trend cross" title="Previous point comes from a different source (${
-        SOURCE_LABEL[sourceKind(prevIdx)]}), so the change isn't comparable">↔</span>`;
+    if (sourceKind(prevIdx) !== sourceKind(latestIdx) || regulationOf(prevIdx) !== regulationOf(latestIdx)) {
+      // a jump between two ladders or two regulations isn't a trend — don't draw one
+      const why = sourceKind(prevIdx) !== sourceKind(latestIdx)
+        ? `source (${SOURCE_LABEL[sourceKind(prevIdx)]})`
+        : `regulation (Reg ${regulationOf(prevIdx)})`;
+      delta = ` <span class="trend cross" title="Previous point comes from a different ${why}, so the change isn't comparable">↔</span>`;
     } else {
       const d = +(latest - series[prevIdx]).toFixed(1);
       if (d > 0) delta = ` <span class="trend up">▲${d}</span>`;
@@ -240,23 +263,21 @@ function trendCell(series) {
   return `<span title="${esc(history)}">${latest}%${delta}</span>`;
 }
 
-// "Apr 30 – Jun 30 monthly from the Showdown ladder · Jul 16 on, weekly in-game"
+// "2026-04-30 → 2026-06-30: Showdown ladder (Reg M-A, monthly) · 2026-07-16 → …: in-game (Reg M-B, weekly)"
 function provenanceNote() {
   const runs = [];
   USAGE.dates.forEach((date, i) => {
-    const kind = sourceKind(i);
+    const kind = sourceKind(i), reg = regulationOf(i);
     const last = runs[runs.length - 1];
-    if (last && last.kind === kind) last.dates.push(date);
-    else runs.push({ kind, dates: [date] });
+    if (last && last.kind === kind && last.reg === reg) last.dates.push(date);
+    else runs.push({ kind, reg, dates: [date] });
   });
   return runs.map((run) => {
     const span = run.dates.length > 1
       ? `${run.dates[0]} → ${run.dates[run.dates.length - 1]}`
       : run.dates[0];
-    const reg = run.kind === "showdown"
-      ? ` (Reg ${USAGE.sources[USAGE.dates.indexOf(run.dates[0])]?.formats?.Doubles?.regulation ?? "M-A"}, monthly)`
-      : " (weekly)";
-    return `${span}: ${SOURCE_LABEL[run.kind]}${reg}`;
+    const cadence = run.kind === "showdown" ? "monthly" : "weekly";
+    return `${span}: ${SOURCE_LABEL[run.kind]} (${run.reg ? `Reg ${run.reg}, ` : ""}${cadence})`;
   }).join(" · ");
 }
 
@@ -270,7 +291,7 @@ async function fillDetail(p) {
       <button class="usage-tab ${detailTab === "moves" ? "active" : ""}" data-dt="moves">All moves</button>
       ${detailTab === "usage" ? ["Doubles", "Singles"].map((f) =>
         `<button class="usage-tab sub ${f === usageFormat ? "active" : ""}" data-uf="${f}">${f}</button>`).join("") : ""}
-      <span class="usage-note">${detailTab === "usage" ? "updated weekly" : `${p.moves.length} moves`}</span>
+      <span class="usage-note">${detailTab === "usage" ? "updated weekly" : `${movesFor(p).length} moves`}</span>
     </div>
     <div class="usage-body">Loading…</div>`;
 
@@ -284,7 +305,7 @@ async function fillDetail(p) {
   if (detailTab === "moves") {
     const abilities = p.abilities.map((a) =>
       `<div class="usage-row"><span>${a}</span><span class="opt-desc">${esc(DATA.abilityInfo[a] || "")}</span></div>`).join("");
-    const moves = p.moves.map((id) => {
+    const moves = movesFor(p).map((id) => {
       const m = DATA.moveInfo[id];
       const bp = m.category === "Status" ? "—" : m.basePower;
       const acc = m.accuracy === true ? "—" : m.accuracy + "%";
@@ -545,15 +566,25 @@ document.querySelectorAll(".cat-chip").forEach((btn) => {
   });
 });
 
-// ---------- format selector ----------
-document.querySelectorAll(".format-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    state.format = btn.dataset.format;
-    document.querySelectorAll(".format-btn").forEach((b) =>
-      b.classList.toggle("active", b.dataset.format === state.format));
-    render();
-  });
-});
+// ---------- regulation selector (buttons built from data, newest first) ----------
+function buildFormatButtons() {
+  const wrap = document.getElementById("format-buttons");
+  for (const reg of DATA.regulations) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "format-btn";
+    btn.dataset.format = reg.id;
+    btn.innerHTML = `Reg ${reg.label}${reg.current ? ' <span class="hint">current</span>' : ""}`;
+    btn.classList.toggle("active", reg.id === state.format);
+    btn.addEventListener("click", () => {
+      state.format = reg.id;
+      wrap.querySelectorAll(".format-btn").forEach((b) =>
+        b.classList.toggle("active", b.dataset.format === state.format));
+      render();
+    });
+    wrap.appendChild(btn);
+  }
+}
 
 // ---------- IV toggle ----------
 document.getElementById("iv-toggle").addEventListener("change", (e) => {

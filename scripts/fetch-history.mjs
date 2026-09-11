@@ -24,7 +24,6 @@ const CUTOFF = 0;            // all ladder players — closest match to the in-g
 const MONTHS = ["2026-04", "2026-05", "2026-06"];  // Champions released 2026-04-08
 // in-game battle format -> Showdown format family (VGC is doubles, BSS is singles)
 const FORMAT_FAMILIES = { Doubles: "gen9championsvgc2026reg", Singles: "gen9championsbssreg" };
-const REGULATIONS = ["ma", "mb"];
 // keep the top N per category so the file stays small; the UI shows fewer
 const KEEP = { moves: 16, abilities: 6, items: 12, natures: 10, spreads: 12 };
 
@@ -32,6 +31,8 @@ const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const usagePath = join(projectRoot, "data", "usage", "usage.json");
 const usage = JSON.parse(readFileSync(usagePath, "utf8"));
 const dex = JSON.parse(readFileSync(join(projectRoot, "data", "pokemon.json"), "utf8"));
+// Showdown format suffixes for every known regulation: "regmb" -> "mb"
+const REGULATIONS = dex.regulations.map((r) => r.id.replace(/^reg/, ""));
 const force = process.argv.includes("--force");
 
 const toID = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");

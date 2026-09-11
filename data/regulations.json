@@ -1,0 +1,23 @@
+{
+  "_note": "Written by scripts/build-data.mjs. ref = the Showdown commit each regulation is built from: the latest one for the current regulation, the last one where it was current for retired ones.",
+  "regulations": [
+    {
+      "id": "regmc",
+      "label": "M-C",
+      "mod": "champions",
+      "ref": "524413e8415fe179781e9bbcc7c79a85543b3409"
+    },
+    {
+      "id": "regmb",
+      "label": "M-B",
+      "mod": "champions",
+      "ref": "81c39fb3facd0c82bc6753295b2b079190fa3e6f"
+    },
+    {
+      "id": "regma",
+      "label": "M-A",
+      "mod": "championsregma",
+      "ref": "81c39fb3facd0c82bc6753295b2b079190fa3e6f"
+    }
+  ]
+}

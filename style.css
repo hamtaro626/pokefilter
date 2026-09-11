@@ -376,3 +376,19 @@ main {
 .site-footer a { color: var(--muted); }
 
 .trend.cross { color: var(--accent-2); cursor: help; }
+
+/* regulation buttons are built from data — wrap once there are many */
+#format-buttons { flex-wrap: wrap; }
+
+/* Pokémon added in the selected regulation */
+.card-new {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #14171c;
+  background: var(--accent-2);
+  border-radius: 4px;
+  padding: 0 0.3rem;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+  cursor: help;
+}
