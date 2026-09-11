@@ -14,7 +14,8 @@
 //   - mods/champions/moves.ts                  Champions-modified move stats
 //   - data/pokedex.ts                          stats, types, abilities
 //   - play.pokemonshowdown.com moves.json      base move data
-//   - data/text/moves.ts, abilities.ts         descriptions
+//   - mods/champions/items.ts + client items.js which items are available
+//   - data/text/moves.ts, abilities.ts, items.ts  descriptions
 //
 // Usage: node scripts/build-data.mjs   (writes only when the data actually changed)
 // Runs daily from .github/workflows/update-data.yml.
@@ -62,9 +63,10 @@ function parseTsObject(tsSource) {
   return new Function(`return (${objText});`)();
 }
 
-// champions/moves.ts contains TS battle code, so it can't be eval'd.
-// Line-parse just the simple stat overrides (basePower: 90, accuracy: 100, …).
-function parseMoveOverrides(tsSource) {
+// The champions mod's moves.ts / items.ts can contain TS battle code, so they
+// can't be eval'd. Line-parse just the simple overrides (basePower: 90,
+// accuracy: 100, isNonstandard: "Past", …).
+function parseModOverrides(tsSource) {
   const overrides = {};
   let current = null;
   for (const line of tsSource.split("\n")) {
@@ -73,10 +75,14 @@ function parseMoveOverrides(tsSource) {
     if (/^\t\},?$/.test(line)) { current = null; continue; }
     if (!current) continue;
     const field = line.match(/^\t\t(basePower|accuracy|pp|priority): (\d+|true),?$/) ||
-                  line.match(/^\t\t(category|type): "([^"]+)",?$/);
+                  line.match(/^\t\t(category|type): "([^"]+)",?$/) ||
+                  line.match(/^\t\t(isNonstandard): (null|"[^"]+"),?$/);
     if (field) {
       const [, key, raw] = field;
-      overrides[current][key] = /^\d+$/.test(raw) ? Number(raw) : raw === "true" ? true : raw;
+      overrides[current][key] = /^\d+$/.test(raw) ? Number(raw)
+        : raw === "true" ? true
+        : raw === "null" ? null
+        : raw.replace(/^"(.*)"$/, "$1");
     }
   }
   return overrides;
@@ -132,13 +138,19 @@ function findLearnset(chain, id, baseId) {
 
 const sha = await latestCommit();
 console.log(`Fetching data from Pokémon Showdown @ ${sha.slice(0, 7)}...`);
-const [formatsTs, pokedexTs, movesModTs, movesJson, movesTextTs, abilitiesTextTs] = await Promise.all([
+const [
+  formatsTs, pokedexTs, movesModTs, movesJson, movesTextTs, abilitiesTextTs,
+  itemsModTs, itemsJs, itemsTextTs,
+] = await Promise.all([
   raw(sha, "config/formats.ts"),
   raw(sha, "data/pokedex.ts"),
   raw(sha, `data/mods/${CURRENT_MOD}/moves.ts`),
   fetchText(`${PLAY}/moves.json`),
   raw(sha, "data/text/moves.ts"),
   raw(sha, "data/text/abilities.ts"),
+  raw(sha, `data/mods/${CURRENT_MOD}/items.ts`),
+  fetchText(`${PLAY}/items.js`),
+  raw(sha, "data/text/items.ts"),
 ]);
 
 // ---- regulations: what Showdown lists today + what we've built before ----
@@ -166,7 +178,11 @@ for (const r of regulations) {
 }
 
 const pokedex = parseTsObject(pokedexTs);
-const movesMod = parseMoveOverrides(movesModTs);    // Champions move overrides
+const movesMod = parseModOverrides(movesModTs);     // Champions move overrides
+const itemsMod = parseModOverrides(itemsModTs);     // Champions item availability
+// the client's items.js is `exports.BattleItems = {...}` with battle code stripped
+const itemsDex = new Function("exports", `${itemsJs}; return exports.BattleItems;`)({});
+const itemsText = parseTsObject(itemsTextTs);
 const movesDex = JSON.parse(movesJson);
 const movesText = parseTsObject(movesTextTs);
 const abilitiesText = parseTsObject(abilitiesTextTs);
@@ -265,6 +281,16 @@ for (const name of [...abilityNamesUsed].sort()) {
   abilityInfo[name] = abilitiesText[toId(name)]?.shortDesc ?? "";
 }
 
+// ---- item descriptions, for items available in the current regulation ----
+// champions/items.ts only toggles availability, so Showdown's text applies.
+// Keyed by id because the usage source spells names its own way.
+const itemInfo = {};
+for (const id of Object.keys(itemsDex).sort()) {
+  const nonstandard = "isNonstandard" in (itemsMod[id] ?? {}) ? itemsMod[id].isNonstandard : itemsDex[id].isNonstandard;
+  if (nonstandard) continue;
+  itemInfo[id] = { name: itemsDex[id].name, desc: itemsText[id]?.shortDesc ?? "" };
+}
+
 out.sort((a, b) => b.bst - a.bst || a.id.localeCompare(b.id));
 
 // ---- report + sanity check ----
@@ -287,6 +313,7 @@ const dataset = {
   pokemon: out,
   moveInfo,
   abilityInfo,
+  itemInfo,
 };
 
 // Skip the write when nothing but the timestamp/commit changed, so the daily

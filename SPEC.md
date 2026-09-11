@@ -1,4 +1,27 @@
-# PokéFilter — SPEC (v0.6)
+# PokéFilter — SPEC (v0.7)
+
+## v0.7 additions (2026-09-11)
+- **Richer item usage.** The Usage tab's Items section shows the top 5 held
+  items with a "Show all N" toggle (the in-game source tracks 10–28 per
+  Pokémon). Click an item to see what it does. Descriptions come from
+  Showdown's item text for the 166 items legal in Champions — Champions changes
+  which items exist, not what they do, so the text is accurate.
+- Item names the usage source garbled ("lron Ball", "SCC") match no Champions
+  item and are hidden; "Nothing" shows as "(no item)".
+- **Fix: usage lists only show the latest snapshot.** Before, each entry showed
+  its last *known* value, so a move, item, or spread that dropped out of use
+  kept its old % (Garchomp's White Herb showed 4.5% from April). About 10% of
+  listed moves and 21% of listed spreads were stale. Now each category shows
+  only entries in its most recent snapshot; full history stays in the hover.
+
+### Not doing in v0.7
+- Filtering Pokémon by held item, or meta-wide item rankings (both offered,
+  parked for later).
+- Item sprites.
+
+---
+
+# v0.6 spec
 
 ## v0.6 additions (2026-09-11)
 - **Reg M-C** (launched 2026-09-09): 341 Pokémon, 31 new vs M-B — including

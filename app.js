@@ -50,6 +50,9 @@ let usagePromise = null;
 let expandedId = null;  // card with the detail panel open
 let detailTab = "usage";   // "usage" | "moves"
 let usageFormat = "Doubles";
+let itemsExpanded = false; // usage tab: top 5 items, or all of them
+
+const toId = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 const isMega = (p) => /-Mega(-[A-Z])?$/.test(p.name); // incl. Mega-X / -Y / -Z forms
 
@@ -202,6 +205,7 @@ function card(p) {
 
   el.querySelector(".card-top").addEventListener("click", () => {
     expandedId = expandedId === p.id ? null : p.id;
+    itemsExpanded = false;
     render();
   });
   return el;
@@ -331,14 +335,48 @@ async function fillDetail(p) {
     body.textContent = "No ranked usage data for this Pokémon.";
     return;
   }
+  // Only what the most recent snapshot reports — an item last seen in April
+  // shouldn't sit in the list with its April %. "Most recent" is per category,
+  // so a category missing from the newest snapshot still shows its last one.
+  const currentEntries = (bucket) => {
+    const all = Object.entries(rec[bucket] ?? {});
+    let latestIdx = -1;
+    for (const [, series] of all) {
+      for (let i = series.length - 1; i > latestIdx; i--) if (series[i] != null) { latestIdx = i; break; }
+    }
+    return all
+      .filter(([, series]) => latestIdx >= 0 && series[latestIdx] != null)
+      .map(([name, series]) => ({ name, series, latest: series[latestIdx] }))
+      .sort((a, b) => b.latest - a.latest);
+  };
+
   const section = (bucket, title, n, label = (k) => k) => {
-    const entries = Object.entries(rec[bucket] ?? {})
-      .map(([name, series]) => ({ name, series, latest: [...series].reverse().find((v) => v != null) ?? 0 }))
-      .sort((a, b) => b.latest - a.latest)
-      .slice(0, n);
+    const entries = currentEntries(bucket).slice(0, n);
     if (!entries.length) return "";
     return `<div class="usage-col"><h3>${title}</h3>${entries.map((e) =>
       `<div class="usage-row">${label(e.name)}${trendCell(e.series)}</div>`).join("")}</div>`;
+  };
+
+  // Items: top 5 or all, and clicking a row shows what the item does. Names the
+  // usage source garbled ("lron Ball") match no Champions item, so they're skipped.
+  const itemsSection = () => {
+    const entries = currentEntries("items")
+      .filter((e) => e.name === "Nothing" || DATA.itemInfo[toId(e.name)]);
+    if (!entries.length) return "";
+    const rows = (itemsExpanded ? entries : entries.slice(0, 5)).map((e) => {
+      const info = DATA.itemInfo[toId(e.name)];
+      const desc = info?.desc ?? "Holds no item.";
+      return `<div class="usage-row item-row">
+          <span class="item-name" title="${esc(desc)}">${info?.name ?? "(no item)"}</span>${trendCell(e.series)}
+        </div>
+        <div class="item-desc" hidden>${esc(desc)}</div>`;
+    }).join("");
+    const toggle = entries.length > 5
+      ? `<button class="show-all" type="button" data-toggle-items>${
+          itemsExpanded ? "Show top 5 ▴" : `Show all ${entries.length} ▾`}</button>`
+      : "";
+    return `<div class="usage-col"><h3>Items</h3>
+      <div class="item-list${itemsExpanded ? " expanded" : ""}">${rows}</div>${toggle}</div>`;
   };
 
   // "2/32/0/0/0/32" -> "32 Atk / 32 Spe / 2 HP" (invested stats first, then HP)
@@ -362,7 +400,7 @@ async function fillDetail(p) {
   body.innerHTML =
     (section("moves", "Moves", 8, (k) => `<span>${k}</span>`) +
      section("abilities", "Abilities", 3, (k) => `<span>${k}</span>`) +
-     section("items", "Items", 5, (k) => `<span>${k}</span>`) +
+     itemsSection() +
      section("natures", "Natures", 4, natureLabel) +
      section("spreads", "Stat point spreads", 5, spreadLabel)) ||
     "No ranked usage data for this Pokémon.";
@@ -371,6 +409,16 @@ async function fillDetail(p) {
   }
   body.innerHTML += `<p class="usage-note">${provenanceNote()}${
     p.baseId !== p.id ? ` — data covers ${p.baseId} incl. all forms` : ""}</p>`;
+
+  // listeners go last: each `innerHTML +=` above rebuilds the DOM and drops them
+  body.querySelectorAll(".item-row").forEach((row) =>
+    row.addEventListener("click", () => {
+      row.nextElementSibling.hidden = !row.nextElementSibling.hidden;
+    }));
+  body.querySelector("[data-toggle-items]")?.addEventListener("click", () => {
+    itemsExpanded = !itemsExpanded;
+    fillDetail(p);
+  });
 }
 
 // ---------- type chips (click cycles: off -> include -> exclude -> off) ----------

@@ -380,6 +380,22 @@ main {
 /* regulation buttons are built from data — wrap once there are many */
 #format-buttons { flex-wrap: wrap; }
 
+/* usage tab items: click a row for what the item does */
+.item-row { cursor: pointer; }
+.item-name { border-bottom: 1px dotted var(--muted); }
+.item-row:hover .item-name { color: var(--accent-2); }
+.item-desc { font-size: 0.65rem; color: var(--muted); padding: 0 0 0.25rem 0.5rem; line-height: 1.35; }
+.item-list.expanded { max-height: 260px; overflow-y: auto; padding-right: 0.25rem; }
+.show-all {
+  background: none;
+  border: none;
+  color: var(--accent-2);
+  font-size: 0.68rem;
+  cursor: pointer;
+  padding: 0.15rem 0;
+}
+.show-all:hover { text-decoration: underline; }
+
 /* Pokémon added in the selected regulation */
 .card-new {
   font-size: 0.6rem;
