@@ -237,9 +237,17 @@ for (const id of legalIds) {
   // Showdown sprite filename: baseid + "-" + formeid (e.g. "charizard-megax")
   const sprite = dex.forme ? `${toId(dex.baseSpecies)}-${toId(dex.forme)}` : toId(dex.name);
 
+  // Usage stats are tracked per form (Hisuian Zoroark has its own), except for
+  // Megas: they only exist mid-battle, so their usage is the form they evolve
+  // from — Showdown's battleOnly when set (Floette-Mega <- Floette-Eternal),
+  // otherwise the base species.
+  const isMegaForm = /(^|-)Mega(-[A-Z])?$/.test(dex.forme ?? ""); // Mega, Mega-X, M-Mega (Meowstic)
+  const usageId = isMegaForm ? toId(dex.battleOnly ?? dex.baseSpecies) : id;
+
   const entry = {
     id,
-    baseId,                               // for the usage-stats API (keyed by base species)
+    baseId,                               // base species id
+    usageId,                              // key into data/usage/usage.json
     name: dex.name,                       // e.g. "Garchomp-Mega"
     sprite,
     num: dex.num,

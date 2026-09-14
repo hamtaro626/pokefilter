@@ -330,7 +330,7 @@ async function fillDetail(p) {
 
   // usage tab
   await loadUsageFile();
-  const rec = USAGE?.formats?.[usageFormat]?.[p.baseId];
+  const rec = USAGE?.formats?.[usageFormat]?.[p.usageId];
   if (!rec) {
     body.textContent = "No ranked usage data for this Pokémon.";
     return;
@@ -407,8 +407,12 @@ async function fillDetail(p) {
   if (rec.spreads) {
     body.innerHTML += `<p class="usage-note">Spreads are Champions stat points — 66 to spend, 32 max in any one stat.</p>`;
   }
-  body.innerHTML += `<p class="usage-note">${provenanceNote()}${
-    p.baseId !== p.id ? ` — data covers ${p.baseId} incl. all forms` : ""}</p>`;
+  // Megas only exist mid-battle, so they share the usage of the form they evolve from
+  const megaNote = p.usageId !== p.id
+    ? ` — Mega Evolution happens in battle, so this is ${
+        DATA.pokemon.find((x) => x.id === p.usageId)?.name ?? p.name.replace(/-Mega.*$/, "")}'s usage`
+    : "";
+  body.innerHTML += `<p class="usage-note">${provenanceNote()}${megaNote}</p>`;
 
   // listeners go last: each `innerHTML +=` above rebuilds the DOM and drops them
   body.querySelectorAll(".item-row").forEach((row) =>

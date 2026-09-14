@@ -53,9 +53,14 @@ week-over-week trend arrows. Each snapshot is tagged with the regulation being
 played, and no trend arrow is drawn across a regulation change. Manual runs:
 
 ```bash
-node scripts/fetch-usage.mjs             # append a snapshot now
-node scripts/fetch-usage.mjs --backfill  # rebuild from the API's daily history
+node scripts/fetch-usage.mjs                 # append a snapshot now
+node scripts/fetch-usage.mjs --backfill      # rebuild from the API's daily history
+node scripts/fetch-usage.mjs --fill-missing  # add past dates for Pokémon with no data yet
 ```
+
+Usage is stored **per form**: Hisuian Zoroark, Rotom-Wash, Alolan Ninetales etc.
+each have their own stats. Only Mega Evolutions share the stats of the form they
+evolve from, since they're the same team slot until mid-battle.
 
 ### History before 2026-07-16
 

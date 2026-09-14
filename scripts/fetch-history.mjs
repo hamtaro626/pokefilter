@@ -51,9 +51,10 @@ for (const perId of Object.values(usage.formats)) {
 }
 const displayName = (map, id) => map.get(id) ?? prettify(id);
 
-// Showdown lists each form separately ("Garchomp-Mega"); the in-game data folds
-// forms into their base species, so map every form id back to its baseId.
-const baseIdById = new Map(dex.pokemon.map((p) => [p.id, p.baseId]));
+// Showdown lists every form separately. Match the in-game data's keys: regional
+// and other forms stay separate (Zoroark-Hisui), while Megas fold into the form
+// they evolve from (Garchomp-Mega -> garchomp) — see usageId in build-data.mjs.
+const usageIdById = new Map(dex.pokemon.map((p) => [p.id, p.usageId]));
 const RAW_BUCKETS = ["Moves", "Abilities", "Items", "Spreads"];
 
 const lastDayOfMonth = (ym) => {
@@ -142,13 +143,13 @@ for (const month of MONTHS) {
     if (!res.ok) { console.log(`- chaos fetch failed ${res.status}`); continue; }
     const chaos = await res.json();
     const unmatched = [];
-    // merge each species' forms by summing their weighted counts, then
+    // merge each Mega into its pre-Mega form by summing weighted counts, then
     // normalize once — combining percentages directly would ignore form usage
-    const mergedByBase = {};
+    const mergedById = {};
     for (const [displayMon, mon] of Object.entries(chaos.data)) {
-      const baseId = baseIdById.get(toID(displayMon));
-      if (!baseId) { unmatched.push(displayMon); continue; }
-      const target = (mergedByBase[baseId] ??= Object.fromEntries(RAW_BUCKETS.map((b) => [b, {}])));
+      const usageId = usageIdById.get(toID(displayMon));
+      if (!usageId) { unmatched.push(displayMon); continue; }
+      const target = (mergedById[usageId] ??= Object.fromEntries(RAW_BUCKETS.map((b) => [b, {}])));
       // A Mega's ability only applies after it Mega evolves; the in-game source
       // reports the pre-Mega ability (the Mega Stone shows up under items
       // instead), so folding in e.g. Sand Force would invent a value the rest
@@ -162,9 +163,9 @@ for (const month of MONTHS) {
       }
     }
     const byId = {};
-    for (const [baseId, merged] of Object.entries(mergedByBase)) {
+    for (const [usageId, merged] of Object.entries(mergedById)) {
       const rec = toRecord(merged);
-      if (rec) byId[baseId] = rec;
+      if (rec) byId[usageId] = rec;
     }
     const matched = Object.keys(byId).length;
     perFormat[battleFormat] = byId;
@@ -181,7 +182,11 @@ if (!added.length) {
 
 // ---- rebuild the aligned series with the new dates merged in ----
 const sources = usage.sources ?? usage.dates.map(() => ({ kind: "ingame" }));
-const combined = usage.dates.map((date, i) => ({ date, source: sources[i], perFormat: null, index: i }));
+// --force re-adds dates that already exist: drop their old columns first
+const replaced = new Set(added.map((a) => a.date));
+const combined = usage.dates
+  .map((date, i) => ({ date, source: sources[i], perFormat: null, index: i }))
+  .filter((c) => !replaced.has(c.date));
 for (const a of added) combined.push({ date: a.date, source: a.meta, perFormat: a.perFormat, index: -1 });
 combined.sort((x, y) => x.date.localeCompare(y.date));
 

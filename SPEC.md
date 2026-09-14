@@ -1,4 +1,40 @@
-# PokéFilter — SPEC (v0.7)
+# PokéFilter — SPEC (v0.7.1)
+
+## v0.7.1 fixes (2026-09-13)
+- **Usage is per form, not per species.** Usage was fetched and stored by base
+  species, so all 29 non-Mega forms showed their base form's stats (Hisuian
+  Zoroark listed Night Daze; Rotom-Wash showed plain Rotom). The in-game source
+  tracks forms separately ("Hisuian Zoroark.csv"), so every Pokémon now has a
+  `usageId`: its own id, except Megas, which use the form they Mega Evolve from
+  — Showdown's `battleOnly` when set (Floette-Mega ← Floette-Eternal,
+  Meowstic-F-Mega ← Meowstic-F), otherwise the base species.
+- **Only accept the Pokémon we asked for.** For a form it doesn't track, the API
+  silently answers with another one (`persian` returns Alolan Persian), so data
+  is used only when the response's `showdownId` matches.
+- **API name aliases** where the API files a Pokémon under a different id than
+  Showdown: Eternal Floette is `floette`, Vivillon is `vivillonfancy`. The old
+  `floette` history was merged into `floetteeternal`.
+- **History repaired.** `fetch-usage.mjs --fill-missing` pulled each form's
+  in-game history from the API's per-season daily files for the existing
+  snapshot dates (seasons M4 and M5 are still served via `?season=`).
+  `fetch-history.mjs --force` rebuilt April–June with forms kept apart (it had
+  summed e.g. every Rotom form into `rotom`), and `--force` no longer
+  duplicates the dates it replaces. All 265k previously stored in-game values
+  were checked unchanged.
+- **Weekly snapshot fallback.** The API's "current" data is the site's newest
+  daily file, and some Pokémon skip a day (Maushold and Eternal Floette had
+  none on 2026-09-13), so a Pokémon missing from it now uses its own newest
+  daily file from the past week of the same season.
+- Caveat: backfilled dates (07-16 to 08-18) match the archived daily files
+  exactly, but the three weekly-job dates (08-24, 08-31, 09-07) don't match any
+  archived file for the base species, so the form values filled in for those
+  dates are the archived dailies and may differ slightly in kind.
+- Still no usage: Kanto Persian, Gourgeist-Small, Paldean Tauros Combat Breed
+  (not tracked by the source), and the new M-C species until the source adds them.
+
+---
+
+# v0.7 spec
 
 ## v0.7 additions (2026-09-11)
 - **Richer item usage.** The Usage tab's Items section shows the top 5 held
