@@ -25,7 +25,8 @@ body {
 .site-header { text-align: center; padding: 1.5rem 1rem 1rem; }
 .site-header h1 { font-size: 2.2rem; letter-spacing: -0.02em; line-height: 0; }
 .site-header .logo {
-  width: min(360px, 70vw);
+  /* wordmark is a wide banner (720x243), so it takes more width than the old logo */
+  width: min(440px, 82vw);
   height: auto;
   display: inline-block;
 }

@@ -1,4 +1,23 @@
-# PokéFilter — SPEC (v0.7.1)
+# PokéFilter — SPEC (v0.7.2)
+
+## v0.7.2 (2026-09-17)
+- **New logo.** Alec's new wordmark replaces the old one. The source art
+  (2000×2000, mostly transparent) is trimmed to its artwork bounds
+  (1802×607 at x94/y633) and served at 720×243 — exactly 2× the on-screen
+  width, so it stays sharp on retina screens.
+- Served as **WebP (32 KB) with a palette-PNG fallback (68 KB)** via
+  `<picture>`, replacing the old 368 KB PNG. Icons use two crops of the same
+  art, because the full wordmark is illegible as an icon: 180/192/512 take the
+  "Poké" square (980² at x94/y447, palette-compressed), and 16/32/48 take a
+  tighter "Pok" square (700² at x94/y650, 24-bit), which is the only crop still
+  readable in a browser tab at 16px.
+- The header logo is wider than it is tall now (2.97:1 vs the old 1.17:1), so
+  it takes `min(440px, 82vw)` instead of `min(360px, 70vw)`.
+- Source art stays at `assets/logo-original.png`.
+
+---
+
+# v0.7.1 spec
 
 ## v0.7.1 fixes (2026-09-13)
 - **Usage is per form, not per species.** Usage was fetched and stored by base
