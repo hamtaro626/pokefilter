@@ -1,4 +1,19 @@
-# PokéFilter — SPEC (v0.7.2)
+# PokéFilter — SPEC (v0.7.3)
+
+## v0.7.3 (2026-09-17)
+- **Logo replaced again.** Same pipeline as v0.7.2 and the same on-page size
+  (the new art trims to 1802×605, 2.98:1, so `index.html` and `style.css`
+  needed no changes), but the new art has a **solid rectangular background**
+  instead of triangles over transparency.
+- That changed the icon crops: with a flat-topped banner, a tall crop would
+  add empty bands, so 180/192/512 now use a full-bleed "Pok" square
+  (605² at x94/y633) and 16/32/48 a tighter "Po" square (420² at x110/y760).
+  A letterboxed version of the whole wordmark was tried and rejected — it is
+  an unreadable smear at 16-32px.
+
+---
+
+# v0.7.2 spec
 
 ## v0.7.2 (2026-09-17)
 - **New logo.** Alec's new wordmark replaces the old one. The source art
