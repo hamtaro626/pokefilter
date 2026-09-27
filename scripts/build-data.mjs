@@ -74,12 +74,20 @@ function parseModOverrides(tsSource) {
     if (open) { current = open[1]; overrides[current] = {}; continue; }
     if (/^\t\},?$/.test(line)) { current = null; continue; }
     if (!current) continue;
-    const field = line.match(/^\t\t(basePower|accuracy|pp|priority): (\d+|true),?$/) ||
-                  line.match(/^\t\t(category|type): "([^"]+)",?$/) ||
+    // flags sit on one line: `flags: { contact: 1, protect: 1, slicing: 1 },`
+    const flagLine = line.match(/^\t\tflags: \{([^}]*)\},?$/);
+    if (flagLine) {
+      overrides[current].flags = Object.fromEntries(flagLine[1].split(",")
+        .map((s) => s.trim()).filter(Boolean)
+        .map((s) => { const [k, v] = s.split(":").map((t) => t.trim()); return [k, Number(v)]; }));
+      continue;
+    }
+    const field = line.match(/^\t\t(basePower|accuracy|pp|priority): (-?\d+|true),?$/) ||
+                  line.match(/^\t\t(category|type|target): "([^"]+)",?$/) ||
                   line.match(/^\t\t(isNonstandard): (null|"[^"]+"),?$/);
     if (field) {
       const [, key, raw] = field;
-      overrides[current][key] = /^\d+$/.test(raw) ? Number(raw)
+      overrides[current][key] = /^-?\d+$/.test(raw) ? Number(raw)
         : raw === "true" ? true
         : raw === "null" ? null
         : raw.replace(/^"(.*)"$/, "$1");
@@ -263,7 +271,14 @@ for (const id of legalIds) {
 }
 
 // ---- move details: base data + Champions overrides + description ----
-const OVERRIDE_FIELDS = ["basePower", "accuracy", "pp", "category", "type", "priority"];
+const OVERRIDE_FIELDS = ["basePower", "accuracy", "pp", "category", "type"];
+// move properties worth filtering and showing: each is tied to an ability, item or
+// mechanic players actually build around (Iron Fist, Sharpness, Punk Rock, …)
+const KEPT_FLAGS = ["contact", "punch", "slicing", "sound", "wind", "bite", "pulse",
+  "bullet", "powder", "dance", "heal", "charge", "recharge", "protect"];
+// targeting that changes how a move plays in doubles ("normal" is the default)
+const KEPT_TARGETS = ["allAdjacentFoes", "allAdjacent", "adjacentAlly", "adjacentAllyOrSelf",
+  "allySide", "foeSide", "all", "self", "any", "allies", "randomNormal"];
 const moveInfo = {};
 for (const m of [...moveIdsUsed].sort()) {
   const base = movesDex[m] ?? {};
@@ -280,6 +295,14 @@ for (const m of [...moveIdsUsed].sort()) {
   for (const f of OVERRIDE_FIELDS) {
     if (mod[f] !== undefined) info[f] = mod[f];
   }
+  // a mod's flags object replaces the base one, the way Showdown merges it
+  const flags = mod.flags ?? base.flags ?? {};
+  const kept = KEPT_FLAGS.filter((f) => flags[f]);
+  if (kept.length) info.flags = kept;
+  const priority = mod.priority ?? base.priority ?? 0;
+  if (priority) info.priority = priority;
+  const target = mod.target ?? base.target;
+  if (target && KEPT_TARGETS.includes(target)) info.target = target;
   moveInfo[m] = info;
 }
 

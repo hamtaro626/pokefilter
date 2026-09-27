@@ -10,6 +10,48 @@ const TYPE_COLORS = {
 
 const CATEGORY_COLORS = { Physical: "#C22E28", Special: "#6390F0", Status: "#A8A77A" };
 
+// Move properties Champions shows and players build around (Iron Fist, Sharpness,
+// Punk Rock, Bulletproof…). Selecting chips narrows the move picker.
+const MOVE_PROPS = [
+  { key: "priority+", label: "+ Priority", test: (m) => (m.priority ?? 0) > 0 },
+  { key: "priority-", label: "− Priority", test: (m) => (m.priority ?? 0) < 0 },
+  { key: "spread", label: "Spread", test: (m) => m.target === "allAdjacentFoes" || m.target === "allAdjacent" },
+  { key: "contact", label: "Contact" },
+  { key: "punch", label: "Punching" },
+  { key: "slicing", label: "Slicing" },
+  { key: "sound", label: "Sound" },
+  { key: "wind", label: "Wind" },
+  { key: "bite", label: "Biting" },
+  { key: "pulse", label: "Pulse" },
+  { key: "bullet", label: "Bullet" },
+  { key: "powder", label: "Powder" },
+  { key: "dance", label: "Dance" },
+  { key: "heal", label: "Healing" },
+].map((p) => ({ ...p, test: p.test ?? ((m) => m.flags?.includes(p.key)) }));
+const PROP_BY_KEY = new Map(MOVE_PROPS.map((p) => [p.key, p]));
+
+const MOVE_TAG_LABELS = {
+  contact: "Contact", punch: "Punching", slicing: "Slicing", sound: "Sound", wind: "Wind",
+  bite: "Biting", pulse: "Pulse", bullet: "Bullet", powder: "Powder", dance: "Dance",
+  heal: "Healing", charge: "Charge turn", recharge: "Recharge",
+};
+const TARGET_LABELS = {
+  allAdjacentFoes: "Spread: both foes", allAdjacent: "Spread: all adjacent",
+  adjacentAlly: "Ally only", adjacentAllyOrSelf: "Ally or self", allySide: "Your side",
+  foeSide: "Foe side", all: "Whole field", self: "Self", any: "Any target",
+  allies: "All allies", randomNormal: "Random foe",
+};
+const priorityLabel = (p) => `${p > 0 ? "+" : ""}${p} priority`;
+
+// the property pills shown under a move's description
+function moveTags(m) {
+  const tags = [];
+  if (m.priority) tags.push(priorityLabel(m.priority));
+  if (m.target && TARGET_LABELS[m.target]) tags.push(TARGET_LABELS[m.target]);
+  for (const f of m.flags ?? []) if (MOVE_TAG_LABELS[f]) tags.push(MOVE_TAG_LABELS[f]);
+  return tags.map((t) => `<span class="move-tag">${t}</span>`).join("");
+}
+
 // Champions spreads are 0-32 "stat points" per stat, in this order.
 const SPREAD_ORDER = ["HP", "Atk", "Def", "SpA", "SpD", "Spe"];
 
@@ -37,6 +79,7 @@ const state = {
   ability: null,      // display name: "Intimidate"
   statMins: {},       // { spe: 100, bst: 500, ... }
   moveCategory: null, // null | "Physical" | "Special" | "Status" (picker filter)
+  moveProps: [],      // move property keys narrowing the picker ("punch", "priority+")
   lv50: false,        // false = base stats, true = level-50 with 31 IVs
   sort: "bst",
   sortDir: "desc",    // "desc" | "asc"
@@ -82,6 +125,7 @@ fetch("data/pokemon.json")
     state.format = (data.regulations.find((r) => r.current) ?? data.regulations[0]).id;
     buildFormatButtons();
     buildTypeChips();
+    buildPropChips();
     render();
   })
   .catch((err) => {
@@ -342,7 +386,7 @@ async function fillDetail(p) {
     const abilities = p.abilities.map((a) => infoRow(a, DATA.abilityInfo[a] || "")).join("");
     const moves = movesFor(p).map((id) => {
       const m = DATA.moveInfo[id];
-      return infoRow(m.name, m.desc, `<span class="opt-meta">${moveMeta(m)}</span>`);
+      return infoRow(m.name, m.desc, `<span class="opt-meta">${moveMeta(m)}</span>`, moveTags(m));
     }).join("");
     body.innerHTML = `
       <div class="usage-col"><h3>Abilities</h3>${abilities}</div>
@@ -426,7 +470,7 @@ async function fillDetail(p) {
   body.innerHTML =
     (section("moves", "Moves", 8, undefined, (name) => {
        const m = MOVE_BY_NAME.get(toId(name));
-       return m && { desc: m.desc, meta: `<span class="info-meta">${moveMeta(m)}</span>` };
+       return m && { desc: m.desc, meta: `<span class="info-meta">${moveMeta(m)}</span>${moveTags(m)}` };
      }) +
      section("abilities", "Abilities", 3, undefined, (name) => {
        const a = ABILITY_BY_ID.get(toId(name));
@@ -452,6 +496,28 @@ async function fillDetail(p) {
     itemsExpanded = !itemsExpanded;
     fillDetail(p);
   });
+}
+
+// ---------- move property chips (narrow the move picker) ----------
+function buildPropChips() {
+  const wrap = document.getElementById("prop-chips");
+  for (const prop of MOVE_PROPS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "prop-chip";
+    btn.dataset.prop = prop.key;
+    btn.textContent = prop.label;
+    btn.addEventListener("click", () => {
+      state.moveProps = state.moveProps.includes(prop.key)
+        ? state.moveProps.filter((k) => k !== prop.key)
+        : [...state.moveProps, prop.key];
+      wrap.querySelectorAll(".prop-chip").forEach((b) =>
+        b.classList.toggle("active", state.moveProps.includes(b.dataset.prop)));
+      document.getElementById("move-input").focus();
+      movePicker.update();
+    });
+    wrap.appendChild(btn);
+  }
 }
 
 // ---------- type chips (click cycles: off -> include -> exclude -> off) ----------
@@ -548,6 +614,7 @@ const movePicker = setupPicker({
     MOVE_LIST.filter((m) =>
       (!q || m.name.toLowerCase().includes(q)) &&
       (!state.moveCategory || m.category === state.moveCategory) &&
+      state.moveProps.every((key) => PROP_BY_KEY.get(key).test(m)) &&
       !state.moves.includes(m.id))
       .map((m) => ({ ...m, title: m.desc })),
   renderOption: (m) => {
@@ -558,6 +625,7 @@ const movePicker = setupPicker({
         <span class="type-badge" style="background:${TYPE_COLORS[m.type] || "#666"}">${m.type}</span>
         <span class="cat-badge" style="background:${CATEGORY_COLORS[m.category] || "#666"}">${m.category.slice(0, 4)}</span>
         <span class="opt-nums">BP ${bp} · Acc ${acc}</span>
+        ${m.priority ? `<span class="move-tag">${priorityLabel(m.priority)}</span>` : ""}
       </span>`;
   },
   onPick: (opt) => {
@@ -708,8 +776,9 @@ document.getElementById("clear-all").addEventListener("click", () => {
   state.ability = null;
   state.statMins = {};
   state.moveCategory = null;
+  state.moveProps = [];
   document.getElementById("name-input").value = "";
-  document.querySelectorAll(".type-chip, .cat-chip").forEach((b) => b.classList.remove("active", "exclude"));
+  document.querySelectorAll(".type-chip, .cat-chip, .prop-chip").forEach((b) => b.classList.remove("active", "exclude"));
   document.querySelectorAll(".mega-btn").forEach((b) =>
     b.classList.toggle("active", b.dataset.mega === "all"));
   document.querySelectorAll("#stat-inputs input").forEach((i) => (i.value = ""));

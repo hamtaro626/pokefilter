@@ -1,4 +1,30 @@
-# PokéFilter — SPEC (v0.8)
+# PokéFilter — SPEC (v0.8.1)
+
+## v0.8.1 (2026-09-26)
+- **Move properties.** `moveInfo` now carries `priority`, `flags` (contact,
+  punch, slicing, sound, wind, bite, pulse, bullet, powder, dance, heal,
+  charge, recharge, protect) and `target` when it isn't the default, taken from
+  Showdown's move data with the Champions mod's overrides applied — the mod
+  edits these (it made Double Shock a punching move). The build's line-parser
+  gained `flags: { … }`, `target:` and negative numbers (priority −6 parsed as 0
+  before).
+- Those properties show as pills under a move's description (`+4 priority`,
+  `Spread: all adjacent`, `Punching`…), and 14 **property chips narrow the move
+  picker**, ANDed together: Punching + `+ Priority` lists exactly Bullet Punch,
+  Jet Punch and Mach Punch. `protect` is stored but not shown as a pill — nearly
+  every move has it.
+- **Fix: the filter sidebar couldn't be scrolled to the bottom.** It is
+  `position: sticky`, and a sticky panel taller than the window keeps its top
+  pinned, so its lower half (ability, stats, Clear all) was unreachable on
+  shorter screens. It now scrolls inside itself (`max-height: calc(100vh - 2rem)`),
+  and the phone layout keeps normal page scrolling.
+- **Icons: the whole logo at every size**, replacing v0.8's "P" crop for the
+  small sizes, per Alec — the wordmark centred on the dark background at
+  16/32/48 too.
+
+---
+
+# v0.8 spec
 
 ## v0.8 additions (2026-09-26)
 - **Move and ability descriptions**, the way items got them: every move,
