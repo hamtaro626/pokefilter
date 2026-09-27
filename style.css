@@ -337,7 +337,7 @@ main {
 .trend.down { color: #e3350d; }
 .trend.flat { color: var(--muted); }
 .moveset-list { max-height: 260px; overflow-y: auto; padding-right: 0.25rem; }
-.usage-tabs { display: flex; gap: 0.3rem; align-items: center; margin-bottom: 0.4rem; }
+.usage-tabs { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; margin-bottom: 0.4rem; }
 .usage-tab {
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -381,11 +381,12 @@ main {
 /* regulation buttons are built from data — wrap once there are many */
 #format-buttons { flex-wrap: wrap; }
 
-/* usage tab items: click a row for what the item does */
-.item-row { cursor: pointer; }
-.item-name { border-bottom: 1px dotted var(--muted); }
-.item-row:hover .item-name { color: var(--accent-2); }
-.item-desc { font-size: 0.65rem; color: var(--muted); padding: 0 0 0.25rem 0.5rem; line-height: 1.35; }
+/* usage + moveset rows: click one for what the move, ability or item does */
+.info-row { cursor: pointer; }
+.info-row .info-name { color: var(--text); border-bottom: 1px dotted var(--muted); }
+.info-row:hover .info-name { color: var(--accent-2); }
+.info-desc { font-size: 0.65rem; color: var(--muted); padding: 0 0 0.3rem 0.5rem; line-height: 1.35; }
+.info-meta { display: inline-flex; align-items: center; gap: 0.25rem; margin-right: 0.35rem; vertical-align: middle; }
 .item-list.expanded { max-height: 260px; overflow-y: auto; padding-right: 0.25rem; }
 .show-all {
   background: none;

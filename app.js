@@ -45,6 +45,8 @@ const state = {
 let DATA = null;        // { pokemon, moveInfo, abilityInfo }
 let MOVE_LIST = [];     // [{ id, ...moveInfo }] sorted by name
 let ABILITY_LIST = [];  // ["Adaptability", ...]
+let MOVE_BY_NAME = new Map();   // "rockslide" -> move info (usage rows are keyed by display name)
+let ABILITY_BY_ID = new Map();  // "intimidate" -> { name, desc }
 let USAGE = null;       // data/usage/usage.json, lazy-loaded
 let usagePromise = null;
 let expandedId = null;  // card with the detail panel open
@@ -75,6 +77,8 @@ fetch("data/pokemon.json")
       .map(([id, info]) => ({ id, ...info }))
       .sort((a, b) => a.name.localeCompare(b.name));
     ABILITY_LIST = [...new Set(data.pokemon.flatMap((p) => p.abilities))].sort();
+    MOVE_BY_NAME = new Map(Object.entries(data.moveInfo).map(([id, m]) => [toId(m.name), { id, ...m }]));
+    ABILITY_BY_ID = new Map(Object.entries(data.abilityInfo).map(([name, desc]) => [toId(name), { name, desc }]));
     state.format = (data.regulations.find((r) => r.current) ?? data.regulations[0]).id;
     buildFormatButtons();
     buildTypeChips();
@@ -219,6 +223,34 @@ function esc(s) {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
+// ---------- rows that open a description when clicked (moves, abilities, items) ----------
+function moveMeta(m) {
+  const bp = m.category === "Status" ? "—" : m.basePower;
+  const acc = m.accuracy === true ? "—" : m.accuracy + "%";
+  return `<span class="type-badge" style="background:${TYPE_COLORS[m.type] || "#666"}">${m.type}</span>
+    <span class="cat-badge" style="background:${CATEGORY_COLORS[m.category] || "#666"}">${m.category.slice(0, 4)}</span>
+    <span class="opt-nums">BP ${bp} · ${acc}</span>`;
+}
+
+// A name (plus optional trailing cell) with its description hidden underneath
+// until the row is clicked. Hover shows it too, but phones have no hover.
+function infoRow(name, desc, trailing = "", meta = "") {
+  if (!desc) return `<div class="usage-row"><span>${name}</span>${trailing}</div>`;
+  return `<div class="usage-row info-row">
+      <span class="info-name" title="${esc(desc)}">${name}</span>${trailing}
+    </div>
+    <div class="info-desc" hidden>${meta}${esc(desc)}</div>`;
+}
+
+function wireInfoRows(root) {
+  root.querySelectorAll(".info-row").forEach((row) =>
+    row.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const desc = row.nextElementSibling;
+      if (desc?.classList.contains("info-desc")) desc.hidden = !desc.hidden;
+    }));
+}
+
 // ---------- detail panel: usage (weekly snapshots) + full moveset ----------
 function loadUsageFile() {
   usagePromise ??= fetch("data/usage/usage.json")
@@ -295,7 +327,7 @@ async function fillDetail(p) {
       <button class="usage-tab ${detailTab === "moves" ? "active" : ""}" data-dt="moves">All moves</button>
       ${detailTab === "usage" ? ["Doubles", "Singles"].map((f) =>
         `<button class="usage-tab sub ${f === usageFormat ? "active" : ""}" data-uf="${f}">${f}</button>`).join("") : ""}
-      <span class="usage-note">${detailTab === "usage" ? "updated weekly" : `${movesFor(p).length} moves`}</span>
+      <span class="usage-note">${detailTab === "usage" ? "tap a row for details" : `${movesFor(p).length} moves`}</span>
     </div>
     <div class="usage-body">Loading…</div>`;
 
@@ -307,24 +339,15 @@ async function fillDetail(p) {
   const body = panel.querySelector(".usage-body");
 
   if (detailTab === "moves") {
-    const abilities = p.abilities.map((a) =>
-      `<div class="usage-row"><span>${a}</span><span class="opt-desc">${esc(DATA.abilityInfo[a] || "")}</span></div>`).join("");
+    const abilities = p.abilities.map((a) => infoRow(a, DATA.abilityInfo[a] || "")).join("");
     const moves = movesFor(p).map((id) => {
       const m = DATA.moveInfo[id];
-      const bp = m.category === "Status" ? "—" : m.basePower;
-      const acc = m.accuracy === true ? "—" : m.accuracy + "%";
-      return `<div class="usage-row" title="${esc(m.desc)}">
-        <span>${m.name}</span>
-        <span class="opt-meta">
-          <span class="type-badge" style="background:${TYPE_COLORS[m.type] || "#666"}">${m.type}</span>
-          <span class="cat-badge" style="background:${CATEGORY_COLORS[m.category] || "#666"}">${m.category.slice(0, 4)}</span>
-          <span class="opt-nums">BP ${bp} · ${acc}</span>
-        </span>
-      </div>`;
+      return infoRow(m.name, m.desc, `<span class="opt-meta">${moveMeta(m)}</span>`);
     }).join("");
     body.innerHTML = `
       <div class="usage-col"><h3>Abilities</h3>${abilities}</div>
       <div class="usage-col moveset-list"><h3>Learnable moves</h3>${moves}</div>`;
+    wireInfoRows(body);
     return;
   }
 
@@ -350,11 +373,17 @@ async function fillDetail(p) {
       .sort((a, b) => b.latest - a.latest);
   };
 
-  const section = (bucket, title, n, label = (k) => k) => {
+  // `describe` (name -> { desc, meta }) turns rows into click-to-expand rows
+  const section = (bucket, title, n, label = (k) => `<span>${k}</span>`, describe = null) => {
     const entries = currentEntries(bucket).slice(0, n);
     if (!entries.length) return "";
-    return `<div class="usage-col"><h3>${title}</h3>${entries.map((e) =>
-      `<div class="usage-row">${label(e.name)}${trendCell(e.series)}</div>`).join("")}</div>`;
+    const rows = entries.map((e) => {
+      const info = describe?.(e.name);
+      return info?.desc
+        ? infoRow(e.name, info.desc, trendCell(e.series), info.meta ?? "")
+        : `<div class="usage-row">${label(e.name)}${trendCell(e.series)}</div>`;
+    }).join("");
+    return `<div class="usage-col"><h3>${title}</h3>${rows}</div>`;
   };
 
   // Items: top 5 or all, and clicking a row shows what the item does. Names the
@@ -366,10 +395,7 @@ async function fillDetail(p) {
     const rows = (itemsExpanded ? entries : entries.slice(0, 5)).map((e) => {
       const info = DATA.itemInfo[toId(e.name)];
       const desc = info?.desc ?? "Holds no item.";
-      return `<div class="usage-row item-row">
-          <span class="item-name" title="${esc(desc)}">${info?.name ?? "(no item)"}</span>${trendCell(e.series)}
-        </div>
-        <div class="item-desc" hidden>${esc(desc)}</div>`;
+      return infoRow(info?.name ?? "(no item)", desc, trendCell(e.series));
     }).join("");
     const toggle = entries.length > 5
       ? `<button class="show-all" type="button" data-toggle-items>${
@@ -398,8 +424,14 @@ async function fillDetail(p) {
   };
 
   body.innerHTML =
-    (section("moves", "Moves", 8, (k) => `<span>${k}</span>`) +
-     section("abilities", "Abilities", 3, (k) => `<span>${k}</span>`) +
+    (section("moves", "Moves", 8, undefined, (name) => {
+       const m = MOVE_BY_NAME.get(toId(name));
+       return m && { desc: m.desc, meta: `<span class="info-meta">${moveMeta(m)}</span>` };
+     }) +
+     section("abilities", "Abilities", 3, undefined, (name) => {
+       const a = ABILITY_BY_ID.get(toId(name));
+       return a && { desc: a.desc };
+     }) +
      itemsSection() +
      section("natures", "Natures", 4, natureLabel) +
      section("spreads", "Stat point spreads", 5, spreadLabel)) ||
@@ -415,10 +447,7 @@ async function fillDetail(p) {
   body.innerHTML += `<p class="usage-note">${provenanceNote()}${megaNote}</p>`;
 
   // listeners go last: each `innerHTML +=` above rebuilds the DOM and drops them
-  body.querySelectorAll(".item-row").forEach((row) =>
-    row.addEventListener("click", () => {
-      row.nextElementSibling.hidden = !row.nextElementSibling.hidden;
-    }));
+  wireInfoRows(body);
   body.querySelector("[data-toggle-items]")?.addEventListener("click", () => {
     itemsExpanded = !itemsExpanded;
     fillDetail(p);

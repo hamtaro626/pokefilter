@@ -1,4 +1,28 @@
-# PokéFilter — SPEC (v0.7.3)
+# PokéFilter — SPEC (v0.8)
+
+## v0.8 additions (2026-09-26)
+- **Move and ability descriptions**, the way items got them: every move,
+  ability and item row in the Usage tab, and every row in the All moves tab,
+  opens its description when clicked (hover still works on desktop). Move rows
+  also show type / category / BP / accuracy in the expanded line.
+  One shared `infoRow()` + `wireInfoRows()` renders and wires all of them.
+  Usage rows are keyed by display name, so `MOVE_BY_NAME` / `ABILITY_BY_ID`
+  map those names back to the dataset's ids.
+- **Icons are centred.** The old ones were tight crops of the wordmark whose
+  letters bled off every edge, which looked mis-aligned on an iPhone home
+  screen and in a browser tab. The letters in the art are one connected mass
+  (each letter's shadow touches the next), so a centred crop of a single letter
+  isn't possible — the icons now place the art on the site's dark background
+  (#14171c) with even margins:
+  - 180/192/512: the whole wordmark, centred at 78% width (inside the 80%
+    maskable safe circle, so Android's circular mask can't clip it).
+  - 16/32/48: just the "P", centred — the only thing legible in a tab.
+  Both are opaque, which is what iOS wants. The set also got much smaller
+  (512: 64 KB -> 28 KB).
+
+---
+
+# v0.7.3 spec
 
 ## v0.7.3 (2026-09-17)
 - **Logo replaced again.** Same pipeline as v0.7.2 and the same on-page size
