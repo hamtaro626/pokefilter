@@ -1,4 +1,31 @@
-# PokéFilter — SPEC (v0.8.1)
+# PokéFilter — SPEC (v0.8.2)
+
+## v0.8.2 (2026-09-26)
+- **Logo replaced again — square two-line mark.** Alec's new art is a
+  2000×2000 square, "Poké" / "Filter" stacked on two lines, full-bleed (no
+  transparent or solid margin — the lettering itself comes within ~9-17% of
+  every edge). Since it's already square, "the whole picture centered" is now
+  the *only* sensible crop — no padding/letterboxing math needed like the
+  banner-shaped logos before it.
+- **Header**: served at 600×600 (2× the 300px on-screen size), WebP (36 KB,
+  q75) with a palette-PNG fallback (125 KB) via `<picture>`. `.site-header
+  .logo` goes back to `min(300px, 78vw)` — a mark again, not a wide banner.
+- **App icons (16-512)** are the whole square image at every size — same
+  choice Alec made in v0.8.1 for the wordmark. 512 shrank 94 KB → still much
+  smaller than a naive truecolor export via the same palette-PNG technique.
+- **Fixed a real bug this art exposed**: full-bleed corner-to-corner art
+  clips badly under Android's *maskable* icon (a circle mask) — letters got
+  cut in a pixel-level check. Added `assets/icon-512-maskable.png`, the same
+  art scaled to 60% and padded onto the site's dark background so all ink
+  stays inside the safe-zone circle (verified: 0 ink pixels fall outside a
+  centered circle of the icon's own radius). `site.webmanifest` now points
+  its `maskable`-purpose entry there and keeps a separate full-bleed `any`
+  entry — previously both purposes shared one file, which was fine for the
+  old padded wordmark art but not for this one.
+
+---
+
+# v0.8.1 spec
 
 ## v0.8.1 (2026-09-26)
 - **Move properties.** `moveInfo` now carries `priority`, `flags` (contact,
