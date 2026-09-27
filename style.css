@@ -69,9 +69,39 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
-  margin-bottom: 0.5rem;
+  margin: 0;
 }
 .filter-group .hint { font-weight: normal; text-transform: none; letter-spacing: 0; opacity: 0.75; font-size: 0.75rem; }
+
+/* ---------- collapsible filter groups (<details>/<summary>) ---------- */
+.filter-group summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  cursor: pointer;
+  list-style: none;         /* Firefox's native triangle */
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-group summary::-webkit-details-marker { display: none; }   /* Chrome/Safari's native triangle */
+.filter-group summary::marker { content: ""; }
+.filter-group summary:hover h2 { color: var(--text); }
+.filter-group summary:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; border-radius: 4px; }
+
+.filter-group .chevron {
+  flex-shrink: 0;
+  width: 0.55em;
+  height: 0.55em;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);       /* points right when collapsed */
+  transition: transform 0.15s ease;
+  margin-right: 0.15rem;
+}
+.filter-group[open] .chevron { transform: rotate(45deg); }  /* points down when expanded */
+.filter-group summary:hover .chevron { border-color: var(--text); }
+
+.filter-body { margin-top: 0.6rem; }
 
 .type-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .type-chip {

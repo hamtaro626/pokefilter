@@ -1,4 +1,30 @@
-# PokéFilter — SPEC (v0.8.2)
+# PokéFilter — SPEC (v0.8.3)
+
+## v0.8.3 (2026-09-26, same day)
+- **Tighter 16×16 favicon.** The full square logo at 16px was two lines of
+  text compressed into 8px each — illegible mush. `icon-16.png` (only that
+  size) now crops to just the "P" from "Poké" (340×660 around x130/y340 in
+  the source), padded onto the site's dark background so it reads as a
+  recognizable letterform instead of noise. 32/48/180/192/512 keep the whole
+  logo, per Alec's earlier "whole picture" preference — only 16px was
+  genuinely unreadable.
+- **Collapsible filter sections.** Every sidebar filter is now a native
+  `<details>`/`<summary>` disclosure with a chevron (▷ collapsed, ▽ expanded,
+  CSS-drawn, rotates on toggle) — no JS needed for the open/close behavior
+  itself, so it's keyboard-operable for free. **Collapsed by default:**
+  Moves, Mega Evolutions, Minimum base stats, Regulation. **Expanded by
+  default:** Pokémon name, Types, Ability.
+- **Reordered** to: Pokémon name, Types, Ability, Moves, Mega Evolutions,
+  Minimum base stats, Regulation.
+- Implementation note: `<h2>` (incl. `id="stat-mode-label"`, which app.js
+  retargets on the IV toggle) now lives inside `<summary>` — valid HTML
+  (summary may have a heading as its labelling child) and needed no JS
+  changes, since every dynamic hook targets an element by id, not by its
+  ancestor structure.
+
+---
+
+# v0.8.2 spec
 
 ## v0.8.2 (2026-09-26)
 - **Logo replaced again — square two-line mark.** Alec's new art is a

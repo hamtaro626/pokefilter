@@ -30,72 +30,86 @@
   <main>
     <section class="filters" aria-label="Filters">
 
-      <div class="filter-group">
-        <h2>Pokémon name <span class="hint">comma = OR</span></h2>
-        <input id="name-input" type="text" placeholder="e.g. Garchomp, Dragonite…" autocomplete="off">
-        <p class="hint-line">Separate names with commas to match any of them.</p>
-      </div>
-
-      <div class="filter-group">
-        <h2>Regulation</h2>
-        <div class="segmented" id="format-buttons"></div>
-      </div>
-
-      <div class="filter-group">
-        <h2>Types <span class="hint">click again to exclude (NOT)</span></h2>
-        <div id="type-chips" class="type-chips"></div>
-        <p class="hint-line">1st click = must have (max 2) · 2nd = must NOT have · 3rd = off</p>
-      </div>
-
-      <div class="filter-group">
-        <h2>Mega Evolutions</h2>
-        <div class="segmented">
-          <button class="mega-btn active" data-mega="all" type="button">All</button>
-          <button class="mega-btn" data-mega="hide" type="button">No Megas</button>
-          <button class="mega-btn" data-mega="only" type="button">Megas only</button>
+      <details class="filter-group" open>
+        <summary><h2>Pokémon name <span class="hint">comma = OR</span></h2><span class="chevron" aria-hidden="true"></span></summary>
+        <div class="filter-body">
+          <input id="name-input" type="text" placeholder="e.g. Garchomp, Dragonite…" autocomplete="off">
+          <p class="hint-line">Separate names with commas to match any of them.</p>
         </div>
-      </div>
+      </details>
 
-      <div class="filter-group">
-        <h2>Moves <span class="hint">must learn all selected</span></h2>
-        <div class="cat-chips">
-          <button class="cat-chip" data-cat="Physical" type="button">Physical</button>
-          <button class="cat-chip" data-cat="Special" type="button">Special</button>
-          <button class="cat-chip" data-cat="Status" type="button">Status</button>
+      <details class="filter-group" open>
+        <summary><h2>Types <span class="hint">click again to exclude (NOT)</span></h2><span class="chevron" aria-hidden="true"></span></summary>
+        <div class="filter-body">
+          <div id="type-chips" class="type-chips"></div>
+          <p class="hint-line">1st click = must have (max 2) · 2nd = must NOT have · 3rd = off</p>
         </div>
-        <div class="prop-chips" id="prop-chips"></div>
-        <div class="picker">
-          <input id="move-input" type="text" placeholder="Type a move, e.g. Icy Wind…" autocomplete="off">
-          <ul id="move-suggestions" class="suggestions" hidden></ul>
-        </div>
-        <div id="move-selected" class="selected-chips"></div>
-      </div>
+      </details>
 
-      <div class="filter-group">
-        <h2>Ability</h2>
-        <div class="picker">
-          <input id="ability-input" type="text" placeholder="Type an ability, e.g. Intimidate…" autocomplete="off">
-          <ul id="ability-suggestions" class="suggestions" hidden></ul>
+      <details class="filter-group" open>
+        <summary><h2>Ability</h2><span class="chevron" aria-hidden="true"></span></summary>
+        <div class="filter-body">
+          <div class="picker">
+            <input id="ability-input" type="text" placeholder="Type an ability, e.g. Intimidate…" autocomplete="off">
+            <ul id="ability-suggestions" class="suggestions" hidden></ul>
+          </div>
+          <div id="ability-selected" class="selected-chips"></div>
         </div>
-        <div id="ability-selected" class="selected-chips"></div>
-      </div>
+      </details>
 
-      <div class="filter-group">
-        <h2 id="stat-mode-label">Minimum base stats</h2>
-        <label class="iv-toggle">
-          <input type="checkbox" id="iv-toggle">
-          Show Lv. 50 stats (31 IVs, like the Champions UI)
-        </label>
-        <div class="stat-inputs" id="stat-inputs">
-          <label>HP <input type="number" data-stat="hp" min="0" max="255" placeholder="0"></label>
-          <label>Atk <input type="number" data-stat="atk" min="0" max="255" placeholder="0"></label>
-          <label>Def <input type="number" data-stat="def" min="0" max="255" placeholder="0"></label>
-          <label>SpA <input type="number" data-stat="spa" min="0" max="255" placeholder="0"></label>
-          <label>SpD <input type="number" data-stat="spd" min="0" max="255" placeholder="0"></label>
-          <label>Spe <input type="number" data-stat="spe" min="0" max="255" placeholder="0"></label>
-          <label>BST <input type="number" data-stat="bst" min="0" max="1125" placeholder="0"></label>
+      <details class="filter-group">
+        <summary><h2>Moves <span class="hint">must learn all selected</span></h2><span class="chevron" aria-hidden="true"></span></summary>
+        <div class="filter-body">
+          <div class="cat-chips">
+            <button class="cat-chip" data-cat="Physical" type="button">Physical</button>
+            <button class="cat-chip" data-cat="Special" type="button">Special</button>
+            <button class="cat-chip" data-cat="Status" type="button">Status</button>
+          </div>
+          <div class="prop-chips" id="prop-chips"></div>
+          <div class="picker">
+            <input id="move-input" type="text" placeholder="Type a move, e.g. Icy Wind…" autocomplete="off">
+            <ul id="move-suggestions" class="suggestions" hidden></ul>
+          </div>
+          <div id="move-selected" class="selected-chips"></div>
         </div>
-      </div>
+      </details>
+
+      <details class="filter-group">
+        <summary><h2>Mega Evolutions</h2><span class="chevron" aria-hidden="true"></span></summary>
+        <div class="filter-body">
+          <div class="segmented">
+            <button class="mega-btn active" data-mega="all" type="button">All</button>
+            <button class="mega-btn" data-mega="hide" type="button">No Megas</button>
+            <button class="mega-btn" data-mega="only" type="button">Megas only</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="filter-group">
+        <summary><h2 id="stat-mode-label">Minimum base stats</h2><span class="chevron" aria-hidden="true"></span></summary>
+        <div class="filter-body">
+          <label class="iv-toggle">
+            <input type="checkbox" id="iv-toggle">
+            Show Lv. 50 stats (31 IVs, like the Champions UI)
+          </label>
+          <div class="stat-inputs" id="stat-inputs">
+            <label>HP <input type="number" data-stat="hp" min="0" max="255" placeholder="0"></label>
+            <label>Atk <input type="number" data-stat="atk" min="0" max="255" placeholder="0"></label>
+            <label>Def <input type="number" data-stat="def" min="0" max="255" placeholder="0"></label>
+            <label>SpA <input type="number" data-stat="spa" min="0" max="255" placeholder="0"></label>
+            <label>SpD <input type="number" data-stat="spd" min="0" max="255" placeholder="0"></label>
+            <label>Spe <input type="number" data-stat="spe" min="0" max="255" placeholder="0"></label>
+            <label>BST <input type="number" data-stat="bst" min="0" max="1125" placeholder="0"></label>
+          </div>
+        </div>
+      </details>
+
+      <details class="filter-group">
+        <summary><h2>Regulation</h2><span class="chevron" aria-hidden="true"></span></summary>
+        <div class="filter-body">
+          <div class="segmented" id="format-buttons"></div>
+        </div>
+      </details>
 
       <div class="filter-actions">
         <button id="clear-all" type="button">Clear all filters</button>
