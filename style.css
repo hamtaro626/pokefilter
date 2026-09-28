@@ -107,7 +107,7 @@ main {
 
 /* a smaller, secondary disclosure nested inside a filter-group (e.g. Moves'
    category/property chips) — same chevron behavior, lighter-weight heading */
-.sub-filter { margin-top: 0.7rem; }
+.sub-filter { margin-bottom: 0.7rem; }
 .sub-filter summary {
   display: flex;
   align-items: center;

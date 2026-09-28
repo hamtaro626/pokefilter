@@ -1,4 +1,20 @@
-# PokéFilter — SPEC (v0.8.4)
+# PokéFilter — SPEC (v0.8.5)
+
+## v0.8.5 (2026-09-27, same day)
+- **Fix: clicking a move chip covered the other chips.** Category/property
+  chips clicks `.focus()` the move-name input (so typing continues right
+  after narrowing by chip), which opens the autocomplete dropdown. The
+  dropdown is `position: absolute`, growing *down* from the input — with
+  "Move filters" sitting below the input (v0.8.4's arrangement), the open
+  dropdown rendered directly on top of the very chips just clicked. Moved
+  "Move filters" back above the input (its pre-v0.8.4 position, still as a
+  collapsible nested `<details>`) so the dropdown now grows into empty space
+  below, never over the chips.
+- Renamed "More filters" → "Move filters".
+
+---
+
+# v0.8.4 spec
 
 ## v0.8.4 (2026-09-27)
 - **Moves: expanded by default again, but split in two.** Alec wanted the
