@@ -1,4 +1,24 @@
-# PokéFilter — SPEC (v0.8.3)
+# PokéFilter — SPEC (v0.8.4)
+
+## v0.8.4 (2026-09-27)
+- **Moves: expanded by default again, but split in two.** Alec wanted the
+  move name search visible immediately, not hidden behind a click, while
+  still wanting the category (Physical/Special/Status) and property
+  (Priority/Punching/Slicing/…) chips out of the way by default. The Moves
+  group is now `open` with the text input right at the top; the chips moved
+  into a nested `<details class="sub-filter">` ("More filters") collapsed by
+  default, right below the input.
+- Nested disclosures need care with the chevron CSS: `.filter-group[open]
+  .chevron` (a plain descendant selector) would also flip the *inner*
+  sub-filter's still-closed chevron whenever the outer Moves group is open,
+  since the inner chevron is a descendant of the open outer `<details>` too.
+  Fixed by scoping both rules to `> summary` (`.filter-group[open] > summary
+  .chevron`), which only matches a chevron in that element's *own* immediate
+  summary, not one nested deeper inside a child `<details>`.
+
+---
+
+# v0.8.3 spec
 
 ## v0.8.3 (2026-09-26, same day)
 - **Tighter 16×16 favicon.** The full square logo at 16px was two lines of

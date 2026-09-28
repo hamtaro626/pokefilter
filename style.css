@@ -98,10 +98,33 @@ main {
   transition: transform 0.15s ease;
   margin-right: 0.15rem;
 }
-.filter-group[open] .chevron { transform: rotate(45deg); }  /* points down when expanded */
+/* the ">summary" scoping matters once a .sub-filter nests inside a .filter-group:
+   without it, an OPEN outer group would also flip an inner, still-closed chevron */
+.filter-group[open] > summary .chevron { transform: rotate(45deg); }  /* points down when expanded */
 .filter-group summary:hover .chevron { border-color: var(--text); }
 
 .filter-body { margin-top: 0.6rem; }
+
+/* a smaller, secondary disclosure nested inside a filter-group (e.g. Moves'
+   category/property chips) — same chevron behavior, lighter-weight heading */
+.sub-filter { margin-top: 0.7rem; }
+.sub-filter summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.sub-filter summary::-webkit-details-marker { display: none; }
+.sub-filter summary::marker { content: ""; }
+.sub-filter summary:hover { color: var(--text); }
+.sub-filter summary:hover .chevron { border-color: var(--text); }
+.sub-filter summary:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; border-radius: 4px; }
+.sub-filter[open] > summary .chevron { transform: rotate(45deg); }
+.sub-filter-body { margin-top: 0.5rem; }
 
 .type-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .type-chip {

@@ -57,20 +57,25 @@
         </div>
       </details>
 
-      <details class="filter-group">
+      <details class="filter-group" open>
         <summary><h2>Moves <span class="hint">must learn all selected</span></h2><span class="chevron" aria-hidden="true"></span></summary>
         <div class="filter-body">
-          <div class="cat-chips">
-            <button class="cat-chip" data-cat="Physical" type="button">Physical</button>
-            <button class="cat-chip" data-cat="Special" type="button">Special</button>
-            <button class="cat-chip" data-cat="Status" type="button">Status</button>
-          </div>
-          <div class="prop-chips" id="prop-chips"></div>
           <div class="picker">
             <input id="move-input" type="text" placeholder="Type a move, e.g. Icy Wind…" autocomplete="off">
             <ul id="move-suggestions" class="suggestions" hidden></ul>
           </div>
           <div id="move-selected" class="selected-chips"></div>
+          <details class="sub-filter">
+            <summary>More filters <span class="chevron sub" aria-hidden="true"></span></summary>
+            <div class="sub-filter-body">
+              <div class="cat-chips">
+                <button class="cat-chip" data-cat="Physical" type="button">Physical</button>
+                <button class="cat-chip" data-cat="Special" type="button">Special</button>
+                <button class="cat-chip" data-cat="Status" type="button">Status</button>
+              </div>
+              <div class="prop-chips" id="prop-chips"></div>
+            </div>
+          </details>
         </div>
       </details>
 
